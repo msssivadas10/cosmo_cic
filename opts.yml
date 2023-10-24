@@ -1,0 +1,44 @@
+random_catalog: 
+    path       : "mock_data.csv"
+    csv_opts:
+        compression: "infer"
+        chunksize  : 1000
+        delimiter  : ","
+        comment    : "#"
+        header     : 0
+        names      : null              
+    mask       : "%(band)s_mask"
+    x_coord    : "x"
+    y_coord    : "y"                 
+    filters    : [] 
+    expressions: [] 
+
+object_catalog: 
+    path          : "mock_data.csv"
+    csv_opts:
+        compression : "infer"
+        chunksize   : 1000
+        delimiter   : ","
+        comment     : "#" 
+        header      : 0
+        names       : null               
+    redshift      : "redshift"                    
+    redshift_error: "redshift_error"         
+    magnitude     : "%(band)s_magnitude"                
+    mag_offset    : "%(band)s_magnitude_offset"        
+    mask          : "%(band)s_mask"      
+    x_coord       : "x"
+    y_coord       : "y"                 
+    filters       : ["redshift < 1."] 
+    expressions   : []
+
+region            : [0.0, 0.0, 1.0, 1.0]
+bad_regions       : []
+patchsize_x       : 0.5
+patchsize_y       : 0.5
+pixsize           : 0.1
+random_masks      : ["u", "v"]
+object_masks      : ["u", "v"]
+all_bands         : ["u", "v"]
+patch_details_path: "patch.json"
+count_results_path: "count.json"
