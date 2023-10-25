@@ -1,8 +1,7 @@
 #!/usr/bin/python3
 
 import json, os
-import numpy as np, pandas as pd
-import numpy.random as rnd
+import numpy as np
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -65,6 +64,19 @@ class Shape2D( ABC ):
 class Rectangle( Shape2D ):
     r"""
     A 2D rectangle class.
+
+    Parameters
+    ----------
+    x_min, y_min: float
+        Lower left coordinates of the rectangle region.
+    x_max, y_max: float
+        Upper right coordinates of the rectangle region.
+
+    Examples
+    --------
+    >>> Rectangle(0.0, 0.0, 1.0, 1.0) # create a square 
+    Rectangle(x_min=0.0, y_min=0.0, x_max=1.0, y_max=1.0)
+
     """
 
     __slots__ = 'x_min', 'y_min', 'x_max', 'y_max'
@@ -101,6 +113,12 @@ class Rectangle( Shape2D ):
                          y_max = max( self.y_max, other.y_max ))
     
     def area(self, sphere: bool = False, degree: bool = True) -> float:
+        r"""
+        Return the area of the shape. The optional argument `sphere` tells if the 
+        rectangle is on a unit sphere (default = False). The other optional argument 
+        `degree` tells if the coordinates are in degree units (defaul = True) and is 
+        only used is `sphere=True`.
+        """
         
         x_width, y_width = self.x_max - self.x_min, self.y_max - self.y_min
 
@@ -142,7 +160,7 @@ class Rectangle( Shape2D ):
     @classmethod
     def create(cls, obj: Any) -> 'Rectangle':
         r"""
-        Create a `Rectangle` from rectangle-like objects.
+        Create a `Rectangle` from any rectangle-like objects (array fo four floats).
         """
 
         if not isinstance( obj, Rectangle ):
@@ -165,7 +183,24 @@ class Rectangle( Shape2D ):
 
 class CountResult:
     r"""
-    An object to store count-in-cells data. 
+    An object to store count-in-cells data. This stores the counting set-up such as the region 
+    used and cellsize. This is created without any data, but labelled data are later added using 
+    the `CountResult.add` method. All added data should have the same shape.
+
+    Parameters
+    ----------
+    region: Rectangle
+        The rectangular region where the counting is done.
+    patches: list[Rectangle]
+        List of patches (sub-regions).
+    patch_flags: list[bool]
+        Flag telling if the sub-region is good (that is, not overlapping with any unwanted 
+        areas in the region). 
+    pixsize: float  
+        Cellsize used for counting.
+    patchsize_x, patchsize_y: float
+        Size of the sub-regions.
+
     """
 
     __slots__ = 'region', 'patchsize_x', 'patchsize_y', 'pixsize', 'patches', 'shape', 'patch_flags', 'data'
@@ -176,7 +211,7 @@ class CountResult:
                  patch_flags: list[bool],
                  pixsize: float,
                  patchsize_x: float, 
-                 patchsize_y: float,) -> None:
+                 patchsize_y: float,     ) -> None:
         
         self.region  = Rectangle.create( region )
         self.patches = [ Rectangle.create( patch ) for patch in patches ]
@@ -199,6 +234,19 @@ class CountResult:
     def add(self, value: Any, label: str) -> 'CountResult':
         r"""
         Add new data to the result and return the object itself.
+
+        Parameters
+        ----------
+        value: array_like
+            Data to be added.
+        label: str
+            Name or label of the data.
+
+        Returns
+        -------
+        res: CountResult
+            A reference to the result object.
+
         """
         
         if label in self.data.keys():
@@ -217,7 +265,7 @@ class CountResult:
 
     def save(self, path: str) -> None:
         r"""
-        Save the results in a JSON format.
+        Save the results to a file `path` in a JSON format.
         """     
 
         # creating a JSON object...
@@ -245,7 +293,7 @@ class CountResult:
     @classmethod
     def load(cls, path: str) -> 'CountResult':
         r"""
-        Load a saved result from a JSON file.
+        Load a saved result from a JSON file `path`.
         """
 
         if not os.path.exists( path ):
@@ -268,51 +316,3 @@ class CountResult:
             res.data[label] = np.reshape( values, res.shape )
 
         return res
-
-#############################################################################################################
-# Helper functions
-#############################################################################################################
-
-def generateMockCatalog(size: int = 10_000):
-    r"""
-    Generate a mock catalog of objects in the rectangular region [0, 0, 1, 1]. This will 
-    have two types of masks (u, v), each with 3-10 mask objects of radius between 0.1 and 2; 
-    two types of magnitudes with standard normal distribution; and a redshift with standard 
-    exponential distribution. Scale and shift the values to get catalogs of different values.  
-    """
-
-    # position
-    x = rnd.uniform( low = 0., high = 1., size = size ) # x coordinate
-    y = rnd.uniform( low = 0., high = 1., size = size ) # y coordinate
-
-    # magnitudes
-    mag_u = rnd.normal( loc = 0., scale = 1., size = size ) # type u
-    mag_v = rnd.normal( loc = 0., scale = 1., size = size ) # type v
-
-    # redshift 
-    redshift = rnd.exponential( scale = 1., size = size )
-
-    # type u mask
-    n_masks = rnd.randint( 3, 10 )
-    mask_xy = rnd.uniform( low = 0.,   high = 1.,  size = [ n_masks, 2 ] ) # mask positions
-    mask_r  = rnd.uniform( low = 0.01, high = 0.1, size = n_masks )        # mask size  
-    mask_u  = np.zeros( size, dtype = 'bool' ) # type u
-    for i in range( n_masks ):
-        mask_u = mask_u | ( ( x - mask_xy[i,0] )**2 + ( y - mask_xy[i,1] )**2 < mask_r[i]**2 )
-
-    # type v mask
-    n_masks = rnd.randint( 3, 10 )
-    mask_xy = rnd.uniform( low = 0.,   high = 1.,  size = [ n_masks, 2 ] ) # mask positions
-    mask_r  = rnd.uniform( low = 0.01, high = 0.1, size = n_masks )        # mask size  
-    mask_v  = np.zeros( size, dtype = 'bool' ) # type u
-    for i in range( n_masks ):
-        mask_v = mask_v | ( ( x - mask_xy[i,0] )**2 + ( y - mask_xy[i,1] )**2 < mask_r[i]**2 )
-
-    df = pd.DataFrame({'x'          : x,
-                       'y'          : y,
-                       'redshift'   : redshift,
-                       'u_magnitude': mag_u, 
-                       'v_magnitude': mag_v, 
-                       'u_mask'     : mask_u, 
-                       'v_mask'     : mask_v,  })
-    return df

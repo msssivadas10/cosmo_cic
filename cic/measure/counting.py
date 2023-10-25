@@ -5,8 +5,38 @@ import logging
 import numpy as np, pandas as pd
 from scipy.stats import binned_statistic_dd
 from cic.measure.utils import Rectangle, CountResult
-from mpi4py import MPI
 from typing import Any 
+
+DISABLE_MPI = False # switch indicating if to disable parallel processing with MPI
+
+try:
+    from mpi4py import MPI    
+except ModuleNotFoundError:
+    DISABLE_MPI = True # disable using MPI
+    logging.warning( "module 'mpi4py' is not found, disabling parallel processing" )
+
+
+def getCommunicatorInfo():
+    r"""
+    Return the MPI communication details: the communicator object, rank and size 
+    of the process. 
+    """
+
+    if DISABLE_MPI:
+        return None, 0, 1
+    
+    comm = MPI.COMM_WORLD
+    return comm, comm.rank, comm.size
+
+def setBarrier(comm):
+    r"""
+    Wrapper over the MPI `Barrier` method.
+    """
+
+    if comm is None:
+        return 
+    
+    return comm.Barrier()
 
 
 class CountingError( Exception ):
@@ -29,14 +59,55 @@ def countObjects_rectangularCell(path: str,
                                  expressions: list[str] = [],
                                  x_coord: str = 'x',
                                  y_coord: str = 'y',
-                                 **csv_opts: Any      ):
+                                 **csv_opts: Any             ) -> Any:
     r"""
-    Count the number of objects in recatangular cells.
+    Count the number of objects in 2D recatangular cells.
+
+    Parameters
+    ----------
+    path: str
+        Full path to the file containing the object data.
+    region: Rectangle
+        Region where the counting is done.
+    patchsize_x, patchsize_y: float
+        Size of a sub-region, if the counting is done on sub-divisions of the full 
+        region.
+    pixsize: float
+        Size of a cell. The patchsizes must be an *integer multiple* of the pixsize 
+        for the process to take place without any errors.
+    use_masks: list[str]
+        Names of the masks to use. A mask is a flag telling the that the object is in 
+        a region that cannot be used. Each mask entry must be a string indcating the 
+        column name in the object data.
+    data_filters: list[str]
+        Various filtering conditions to apply on the data. These expressions must be 
+        in a format that can be evaluated by `pandas.DataFrame.query`.
+    expressions: list[str]
+        Various expressions to be evaluated on the data before the calculations. These 
+        expressions must be in a format that can be evaluated by `pandas.DataFrame.query`.
+    x_coord, y_coord: str
+        Name of the X, Y coordinates of the objects in the data.
+    csv_opts:
+        Keyword arguments that are directly passed to the `pandas.read_csv`.
+
+    Returns
+    -------
+    total: array_like
+        Total measured counts in cells. This will be a 3D array of floats, where the first 
+        two dimensions indicate the cell positions and the third dimension indicate the 
+        patches. A value is returned only at the process of rank-0.
+    unmasked: array_like
+        Count of objects do not having any of the mask flags set. Have the same format as 
+        the total counts. A value is returned only at the process of rank-0.
+
+    Notes
+    -----
+        - A keyword argument `chunksize=1` must be given if the data is loaded all at once.
+
     """
 
     # setting up MPI
-    comm       = MPI.COMM_WORLD
-    RANK, SIZE = comm.rank, comm.size
+    comm, RANK, SIZE = getCommunicatorInfo()
 
     # number of patches along each direction:
     rx_min, ry_min, rx_max, ry_max = region.x_min, region.y_min, region.x_max, region.y_max
@@ -153,7 +224,7 @@ def countObjects_rectangularCell(path: str,
     logging.info( "used %d objects out of %d for counting", used_objects, total_objects )
     logging.info( "finished counting in %g seconds :)", time.time() - __t_init )
 
-    comm.Barrier() # syncing...
+    setBarrier(comm) # syncing...
 
     #
     # since using multiple processes, combine counts from all processes
@@ -182,7 +253,7 @@ def countObjects_rectangularCell(path: str,
             comm.Recv( tmp, source = src, tag = 11,  )
             unmasked = unmasked + tmp
 
-    comm.Barrier() # syncing...
+    setBarrier(comm) # syncing...
 
     # 
     # return the result at rank-0
@@ -208,10 +279,48 @@ def prepareRegion(path: str,
                   expressions: list[str] = [],
                   x_coord: str = 'x',
                   y_coord: str = 'y',
-                  **csv_opts: Any                  ):
+                  **csv_opts: Any                  ) -> None:
     r"""
     Prepare the region where counting take place. This includes dividing the region into patches, 
-    and generating a completeness image. Results will be saved.
+    and generating a completeness image. Results will be saved to the path given as JSON file. 
+    This result can be loaded with `CountResult.load`
+
+    Parameters
+    ----------
+    path: str
+        Full path to the file containing the object data.
+    output_path: str
+        Full path to the output file.
+    region: Rectangle
+        Region where the counting is done.
+    patchsize_x, patchsize_y: float
+        Size of a sub-region, if the counting is done on sub-divisions of the full 
+        region.
+    pixsize: float
+        Size of a cell. The patchsizes must be an *integer multiple* of the pixsize 
+        for the process to take place without any errors.
+    bad_regions: list[Rectangle]
+        A list of regions that are excluded from the counting process. Any sub-region 
+        overlapping with these are removed.
+    use_masks: list[str]
+        Names of the masks to use. A mask is a flag telling the that the object is in 
+        a region that cannot be used. Each mask entry must be a string indcating the 
+        column name in the object data.
+    data_filters: list[str]
+        Various filtering conditions to apply on the data. These expressions must be 
+        in a format that can be evaluated by `pandas.DataFrame.query`.
+    expressions: list[str]
+        Various expressions to be evaluated on the data before the calculations. These 
+        expressions must be in a format that can be evaluated by `pandas.DataFrame.query`.
+    x_coord, y_coord: str
+        Name of the X, Y coordinates of the objects in the data.
+    csv_opts:
+        Keyword arguments that are directly passed to the `pandas.read_csv`.
+
+    Notes
+    -----
+        - A keyword argument `chunksize=1` must be given if the data is loaded all at once.
+
     """
 
     #
@@ -364,9 +473,41 @@ def countObjects(path: str,
                  expressions: list[str] = [],
                  x_coord: str = 'x',
                  y_coord: str = 'y',
-                 **csv_opts: Any                   ):
+                 **csv_opts: Any                   ) -> None:
     r"""
-    Count objects in cells in a region.
+    Count objects in cells in a region. The region must be processed in advance using 
+    `prepareRegion` and saved, so that the results can be loaded.
+
+    Parameters
+    ----------
+    path: str
+        Full path to the file containing the object data.
+    patch_details_path: str
+        Full path to the patch details file, as generated by `prepareRegion`.
+    output_path: str
+        Full path to the output file.
+    include_patch_details: bool
+        If set true (default), include the patch count data (i.e., unmasked area fraction) 
+        to the output file.
+    use_masks: list[str]
+        Names of the masks to use. A mask is a flag telling the that the object is in 
+        a region that cannot be used. Each mask entry must be a string indcating the 
+        column name in the object data.
+    data_filters: list[str]
+        Various filtering conditions to apply on the data. These expressions must be 
+        in a format that can be evaluated by `pandas.DataFrame.query`.
+    expressions: list[str]
+        Various expressions to be evaluated on the data before the calculations. These 
+        expressions must be in a format that can be evaluated by `pandas.DataFrame.query`.
+    x_coord, y_coord: str
+        Name of the X, Y coordinates of the objects in the data.
+    csv_opts:
+        Keyword arguments that are directly passed to the `pandas.read_csv`.
+
+    Notes
+    -----
+        - A keyword argument `chunksize=1` must be given if the data is loaded all at once.
+
     """
 
     #

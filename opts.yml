@@ -1,6 +1,7 @@
+id: 'cic-test-001'
 random_catalog: 
     path       : "mock_data.csv"
-    csv_opts:
+    csv_options:
         compression: "infer"
         chunksize  : 1000
         delimiter  : ","
@@ -15,7 +16,7 @@ random_catalog:
 
 object_catalog: 
     path          : "mock_data.csv"
-    csv_opts:
+    csv_options:
         compression : "infer"
         chunksize   : 1000
         delimiter   : ","

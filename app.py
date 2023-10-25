@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 #
-# Application for measuring 2D count-in-cells
-# @author m. s. sūryan śivadās
+# A simple application for measuring 2D count-in-cells on real data.
+#  
+# @author M. S. Sūryan Śivadās
 #
 
 __version__ = '2.0a'
@@ -18,16 +19,33 @@ def raiseErrorAndExit(__msg: str):
     sys.stderr.write("\033[1m\033[91mError:\033[m %s\n" % __msg)
     sys.exit(1)
 
-if sys.version_info < (3, 10):
-    raiseErrorAndExit("app requires python version >= 3.10")
+# if sys.version_info < (3, 10):
+#     raiseErrorAndExit("app requires python version >= 3.10")
 
+# enable optional usage of mpi4py. 
 try:
+
     from mpi4py import MPI
+
+    comm       = MPI.COMM_WORLD
+    rank, size = comm.rank, comm.size 
+
 except ModuleNotFoundError:
+
+    comm, rank, size = None, 0, 1
     raiseErrorAndExit("cannot import 'mpi4py', module not found.")
 
-comm       = MPI.COMM_WORLD
-rank, size = comm.rank, comm.size 
+
+def setBarrier(comm):
+    r"""
+    Wrapper over the MPI `Barrier` method.
+    """
+
+    if comm is None:
+        return 
+    
+    return comm.Barrier()
+
 
 import os
 import re
@@ -63,25 +81,6 @@ parser.add_argument('--flag', help = 'flags to control the execution', type = in
 ################################################################################################
 # Helper functions
 ################################################################################################
-
-def loadOptions(file: str) -> dict:
-    r"""
-    Load options from a YAML / JSON file `file` and return as a dict.
-    """
-    
-    if not os.path.exists( file ):
-        logging.error( f"file does not exist '{ file }'; exiting" )
-        raiseErrorAndExit( f"file does not exist '{ file }'" )
-
-    try:
-        with open( file, 'r' ) as fp:
-            options = yaml.safe_load( fp )
-    except Exception as _e:
-        logging.error( f"failed to load options from '{ file }'. { _e }; exiting" )
-        raiseErrorAndExit( f"failed to load options from '{ file }'. { _e }" )
-
-    return options
-
 
 def replaceFields(string: str, mapping: dict) -> str:
     r"""
@@ -163,6 +162,36 @@ def getCSVReadOptions(csv_opts: dict) -> dict:
     return csv_opts
 
 
+def loadOptions(file: str) -> dict:
+    r"""
+    Load options from a YAML / JSON file `file` and return as a dict.
+    """
+    
+    if not os.path.exists( file ):
+        _msg = f"file does not exist '{ file }'"
+        logging.error( f"{ _msg }; exiting" )
+        raiseErrorAndExit( _msg )
+
+    try:
+        with open( file, 'r' ) as fp:
+            options = yaml.safe_load( fp )
+    except Exception as _e:
+        _msg = f"failed to load options from '{ file }'. { _e }"
+        logging.error( f"{ _msg }; exiting" )
+        raiseErrorAndExit( _msg )
+
+    # check if the options contains an id field 
+    if getValue('id', options, None, str) is None: # get a random 16 charecter id! 
+        
+        from random import choice
+
+        charecters    = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        options['id'] = ''.join([ choice( charecters ) for _ in range(16) ]) 
+        
+
+    return options
+
+
 ################################################################################################
 # Counting process
 ################################################################################################
@@ -173,16 +202,33 @@ def initialize(file: str) -> dict:
     return the loaded options as a dict.
     """
 
+    # load options file
+    options = loadOptions( file )
+    _dir    = 'task_%s' % options['id'] # dir for saving log files and other info
+
     # create log files if not exist
     if rank == 0:
-        if not os.path.exists( "logs" ):
+        if not os.path.exists( _dir ):
             try:
-                os.mkdir( "logs" )
+                os.mkdir( _dir )
             except Exception as e:
                 raiseErrorAndExit( "creating log directory raised exception '%s'" % e )
-    comm.Barrier()
+        
+        log_path = os.path.join( _dir, "logs" )
+        if not os.path.exists( log_path ):
+            try:
+                os.mkdir( log_path )
+            except Exception as e:
+                raiseErrorAndExit( "creating log directory raised exception '%s'" % e )
 
-    log_file = os.path.join( "logs", "%d.log" % rank )
+        # save used options as another YAML file
+        with open( os.path.join( _dir, "used_values.yml" ), 'w' ) as fp:
+            yaml.dump( options, fp, indent = 4 )
+
+    setBarrier(comm)
+
+
+    log_file = os.path.join( _dir, "logs", "%d.log" % rank )
     if not os.path.exists( log_file ):
         open(log_file, 'w').close()
 
@@ -193,12 +239,10 @@ def initialize(file: str) -> dict:
                             logging.FileHandler(log_file, mode = 'w'),
                             logging.StreamHandler()
                         ])
+    
+    logging.info( "loaded options from file '%s'. logs and used values are in '%d'", file, _dir )
 
-    # load options file
-    logging.info( "loading options from file '%s'" % file )
-    options = loadOptions( file )
-
-    comm.Barrier()
+    setBarrier(comm)
     return options
 
 
@@ -208,6 +252,7 @@ def createPatches(options: dict) -> None:
     objects. 
     """
 
+    success = False
     try:
         
         #
@@ -234,7 +279,7 @@ def createPatches(options: dict) -> None:
         path = getValue( "path", cat_opts, None, str ) 
 
         # csv reading options
-        csv_opts = getCSVReadOptions( getValue( "csv_opts", cat_opts, {}, dict ) )
+        csv_opts = getCSVReadOptions( getValue( "csv_options", cat_opts, {}, dict ) )
 
         # column names
         features = {
@@ -284,15 +329,19 @@ def createPatches(options: dict) -> None:
                       x_coord      = features["x_coord"], 
                       y_coord      = features["y_coord"], 
                       **csv_opts      )
+        
+        success = True 
 
     except CountingError:
-        pass # handled already!
+        pass # logged already!
 
     except Exception as _e:
-        _msg = f"failed to create patches. '{ _e }'"
-        logging.error( _msg )
-        raiseErrorAndExit( _msg ) 
+        logging.error( f"failed to create patches. '{ _e }'" ) 
 
+    if not success:
+        raiseErrorAndExit( "failed to create patches, see logs for details :)" )
+
+    setBarrier(comm)
     return
 
 
@@ -301,6 +350,7 @@ def measureCountInCells(options: dict) -> None:
     Count the number of objects in already created cells.
     """
 
+    success = False
     try:
 
         #
@@ -314,7 +364,7 @@ def measureCountInCells(options: dict) -> None:
         path = getValue( "path", cat_opts, None, str ) 
 
         # csv reading options
-        csv_opts = getCSVReadOptions( getValue( "csv_opts", cat_opts, {}, dict ) )
+        csv_opts = getCSVReadOptions( getValue( "csv_options", cat_opts, {}, dict ) )
 
         # column names
         features = {
@@ -374,14 +424,18 @@ def measureCountInCells(options: dict) -> None:
                      y_coord               = features["y_coord"],
                      **csv_opts                                  )
         
+        success = True
+        
     except CountingError:
-        pass # handled already!
+        pass # logged already!
 
     except Exception as _e:
-        _msg = f"failed to count objects. '{ _e }'"
-        logging.error( _msg )
-        raiseErrorAndExit( _msg ) 
+        logging.error( f"failed to count objects. '{ _e }'" )
 
+    if not success:
+        raiseErrorAndExit( "failed to count objects, see logs for details :)" )
+
+    setBarrier(comm)
     return
 
 

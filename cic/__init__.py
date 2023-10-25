@@ -1,3 +1,3 @@
 #!/usr/bin/python3
 
-__all__ = [ 'modelling', 'measure' ]
+__all__ = [ 'modelling', 'measure', 'misc' ]
