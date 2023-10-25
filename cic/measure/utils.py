@@ -393,6 +393,27 @@ class CountResult:
                   density: bool = False ) -> _HistogramResult:
         r"""
         Return the patchwise histogram of a data.
+
+        Parameters
+        ----------
+        label: str
+            Name of the data to use. If not exist, raise exception.
+        bins: int or 1D array_like
+            Number of bins (int) or bins edges (1D array of floats) to use.
+        xrange: bool, optional
+            Range to use for counting. If not given and bins is a int, range is taken from 
+            data limits.
+        density: bool, optional
+            If set true, normalise the histogram to a probability density function. Default 
+            is false.
+
+        Returns
+        -------
+        bin: array_like
+            Bin edges.
+        hist: array_like
+            Patchwise histogram values.
+
         """
 
         data = self.get( label )
