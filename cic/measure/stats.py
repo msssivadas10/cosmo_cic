@@ -162,10 +162,3 @@ def bootstrap(statistic: Callable):
 
 
 
-@jackknife
-def mean(x):
-    return np.mean(x)
-
-
-x = [0.13, 0.12, 0.10, 0.12, 0.09, 0.11, 0.11, 0.10]
-print( mean(x) )

@@ -1,5 +1,9 @@
 #!/usr/bin/python3
 
+import numpy as np
+import matplotlib.pyplot as plt
+
+
 def testCatelogGeneration():
 
     from cic.misc.generate_p3 import p3Generator1
@@ -40,7 +44,7 @@ def testCounting():
                  patch_details_path = 'test_counts.json', 
                  output_path        = 'test_counts.json',
                  use_masks          = ['g_mask', 'r_mask', 'i_mask'], 
-                 data_filters       = ['abs(redshift - 0.5) < 0.1', 'g_magnitude < 22.0'], 
+                 data_filters       = ['g_magnitude < 22.0'], 
                  expressions        = [], 
                  x_coord            = 'ra', 
                  y_coord            = 'dec', 
@@ -50,8 +54,54 @@ def testCounting():
     
     return
 
+def testResult():
+
+    from cic.measure.utils import CountResult
+    from cic.measure.stats import jackknife
+    from scipy.special import gammaln, erf
+
+    @jackknife
+    def mean(x):
+        return np.mean(x)
+    
+    def poissonPMF(k, lam):
+        return np.exp( k * np.log(lam) - lam - gammaln(k+1) )
+
+    def exponentialCDF(x, lam):
+        return np.where( x < 0, 0., 1. - np.exp(-lam * x) )
+    
+    def normalCDF(x, loc, scale):
+        return 0.5 * ( 1. + erf((x - loc) / scale) )
+    
+    
+    res = CountResult.load('test_counts.json')
+
+    pointDensity = 500.
+    cellArea     = res.pixsize**2
+
+    bins       = np.arange(195.5, 350.5, 5.0)
+    hist       = res.histogram('total_count', bins = bins, density = True).hist
+    # print(hist)
+    meanResult = mean(hist)
+    
+    x  = 0.5 * ( bins[1:] + bins[:-1] )
+    y  = meanResult.estimate
+    dy = meanResult.error
+
+    pointDensity = 520.
+    lam = pointDensity * cellArea * normalCDF(22., loc = 22., scale = 5)
+    yt  = poissonPMF(x, lam = lam)
+
+    plt.figure()
+    plt.errorbar(x, y, dy, fmt = 'o', capsize = 5)
+    plt.plot(x, yt)
+    plt.show()
+
+    return
+
 if __name__ == '__main__':
     print("testing...")
 
     # testCatelogGeneration()
     # testCounting()
+    testResult()

@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 
 import json, os
-import numpy as np
+import numpy as np, pandas as pd
 from abc import ABC, abstractmethod
+from collections import namedtuple
 from typing import Any
 
 
@@ -14,6 +15,23 @@ SUCCESS = 0 # success or other flags
 EPSILON = 1e-06 # tolerence to match two floats
 UNIT_DEGREE_IN_RADIAN = 0.017453292519943295 # 1 deg in rad: degree to radian conversion factor
 UNIT_RADIAN_IN_DEGREE = 57.29577951308232    # 1 rad in deg: radian to degree conversion factor
+
+
+def getNearestPrettyNumber(value: float, round: bool = False) -> float:
+    r"""
+    Get a nice number closer to the given number.
+    """
+
+    exponent = np.floor( np.log10( value ) )
+    fraction = value / 10**exponent
+
+    # move to some good number near to the fraction
+    if round:
+        fraction = 1. if fraction < 1.5 else ( 2. if fraction < 3. else ( 5. if fraction < 7. else 10. ) )
+    else:
+        fraction = 1. if fraction < 1. else ( 2. if fraction < 2. else ( 5. if fraction < 5. else 10. ) )
+
+    return fraction * 10**exponent
 
 
 #############################################################################################################
@@ -181,6 +199,8 @@ class Rectangle( Shape2D ):
 # Storage 
 #############################################################################################################
 
+_HistogramResult = namedtuple( 'HistogramResult', ['bins', 'hist'] )
+
 class CountResult:
     r"""
     An object to store count-in-cells data. This stores the counting set-up such as the region 
@@ -316,3 +336,104 @@ class CountResult:
             res.data[label] = np.reshape( values, res.shape )
 
         return res
+    
+    @property
+    def labels(self) -> list[str]:
+        return list( self.data.keys() )
+    
+    def get(self, label: str) -> Any:
+        r"""
+        Get the data with given label. Return None if not exist.
+        """
+
+        return self.data.get( label )
+    
+    def statistics(self, label: str) -> pd.DataFrame:
+        r"""
+        Return the patchwise descriptive statistics of a data. 
+
+        Parameters
+        ----------
+        label: str
+            Name of the data. If not exist, raises a `KeyError`.
+
+        Returns
+        -------
+        stats: pandas.DataFrame
+            Patchwise statistics.
+
+        """
+
+        data = self.get( label )
+        if data is None:
+            raise KeyError( "missing data '%s'" % label )
+        
+        from scipy.stats import describe
+
+        stats = []
+        for i in range( data.shape[-1] ):
+            xi  = data[..., i].flatten() 
+            res = describe( xi )
+            stats.append([res.nobs, 
+                          res.mean, 
+                          res.variance, 
+                          res.skewness, 
+                          res.kurtosis,
+                          *np.percentile( xi, q = [0., 25., 50., 75., 100.] ) ])
+
+        stats = pd.DataFrame(stats, 
+                             columns = ['count', 'mean', 'variance', 'skewness', 'kurtosis',
+                                        'min', '25%', '50%', '75%', 'max'                  ])
+        return stats
+
+    def histogram(self, 
+                  label: str, 
+                  bins: Any = 21, 
+                  xrange: Any = None, 
+                  density: bool = False ) -> _HistogramResult:
+        r"""
+        Return the patchwise histogram of a data.
+        """
+
+        data = self.get( label )
+        if data is None:
+            raise KeyError( "missing data '%s'" % label )
+        
+        if isinstance(bins, int): # find bin edges with given number of bins
+
+            if xrange is None: # get bounds from the data
+
+                # bounds of the data
+                lower, upper = np.min( data ), np.max( data )
+
+                # a nice value for the width
+                width = getNearestPrettyNumber( upper - lower )
+
+                # a nice bin size
+                binsize = getNearestPrettyNumber( width / (bins -1) )
+
+                # nice values for the bounds
+                lower = np.floor( lower / binsize ) * binsize
+                upper = np.ceil( upper / binsize ) * binsize
+
+            else:
+                lower, upper = xrange 
+        
+            bins = np.linspace( lower, upper, bins )
+
+        if np.ndim(bins) != 1:
+            raise TypeError("bins must be an int or 1d array")
+        
+        hist = []
+        bins = np.asfarray( bins )
+        for i in range( data.shape[-1] ):
+            hist_i, _ = np.histogram( data[..., i].flatten(), bins = bins, density = density )
+            hist.append( hist_i )
+        hist = np.stack( hist, axis = -1 )
+
+        return _HistogramResult( bins = bins, hist = hist )
+
+
+
+
+
