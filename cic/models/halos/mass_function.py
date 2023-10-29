@@ -1,23 +1,26 @@
 #!/usr/bin/python3
 
 import numpy as np
-from cic.models.constants import *
 from scipy.interpolate import CubicSpline
 from collections import namedtuple
-from abc import ABC, abstractmethod
 from typing import Any
+
+from ..utils.constants import *
 
 
 _MassFunctionResult = namedtuple('_MassFunctionResult', 
                                  ['m', 'r', 'sigma', 'dlnsdlnm', 'fsigma', 'dndlnm',])
 
-class MassFunction( ABC ):
+class MassFunction:
     r"""
     Base class representing a halo mass-function object.
     """
 
-    @abstractmethod
-    def func(self, model: object, s: Any, z: Any, overdensity: Any) -> Any:
+    def f(self, 
+          model: object, 
+          s: Any, 
+          z: Any, 
+          overdensity: Any, ) -> Any:
         r"""
         Calculate the mass function.
         """
@@ -29,30 +32,32 @@ class MassFunction( ABC ):
                  z: Any, 
                  overdensity: Any, 
                  retval: str = 'dndm', 
-                 variance_args: dict = {}, ) -> Any:
+                 grid: bool = False, ) -> Any:
         r"""
-        Calculate the halo mass-function values.
+        Calculate the halo mass-function as function of halo mass.
         """
-        
-        m, z = np.asfarray( m ), np.asfarray( z )
 
-        # flatten any multi-dimensional arrays, if given
-        m = np.ravel( m ) if np.ndim( m ) > 1 else m
-        z = np.ravel( z ) if np.ndim( z ) > 1 else z
-
-        r = model.lagrangianR( m ) # * np.cbrt( overdensity )
-        s = np.sqrt( model.matterVariance( r, z, nu = 0, **variance_args ) )
+        if grid:
+            assert np.ndim( m ) <= 1 and np.ndim( z ) <= 1
+            m, z = np.ravel( m )[:, None], np.ravel( z )
+        m, z = np.broadcast_arrays( m, z )
 
         # mass-function f(sigma)
-        fs = self.func( model, s, z, overdensity )
-        if retval == 'f':
+        r  = model.lagrangianR( m, overdensity )
+        s  = np.sqrt( model.matterVariance(r, z, 
+                                           nu = 0, 
+                                           grid = False, 
+                                           exact = not model.settings.useInterpolation ))
+        fs = self.f( model, s, z, overdensity )
+        if retval in ( 'f', 'fsigma' ):
             return fs
         
         # mass function dn/dn(m)
-        dlnsdlnm = model.matterVariance( r, z, nu = 1, **variance_args ) / 6.0
-        m        = m[:, None] if np.ndim( dlnsdlnm ) else m
-        rho      = model.matterDensity( z )
-        dndlnm   = fs * np.abs( dlnsdlnm ) * rho / m
+        dlnsdlnm = model.matterVariance(r, z, 
+                                        nu = 1, 
+                                        grid = False, 
+                                        exact = not model.settings.useInterpolation ) / 6.0
+        dndlnm   = fs * np.abs( dlnsdlnm ) * model.matterDensity( z ) / m
         if retval == 'dndlnm':
             return dndlnm
 
@@ -72,42 +77,60 @@ class MassFunction( ABC ):
         raise ValueError( "invalid value for argument retval: '%s'" % retval ) 
 
 
+#########################################################################################
+# Predefined models
+#########################################################################################
 
-class Press74( MassFunction ):
+builtinMassfunctions = {}
+
+
+class Press74(MassFunction):
     r"""
     Halo mass function model by Press & Schechter (1974). It is based on spherical collapse.
     """
 
-    def func(self, model: object, s: Any, z: Any, overdensity: Any = None) -> Any:
+    def f(self, 
+          model: object, 
+          s: Any, 
+          z: Any, 
+          overdensity: Any = None, ) -> Any:
         
-        nu = DELTA_SC / np.asfarray( s )
+        nu = model.collapseDensity( z ) / np.asfarray( s )
         f  = np.sqrt( 2 / np.pi ) * nu * np.exp( -0.5 * nu**2 )
         return f
     
+Press74 = Press74()
+builtinMassfunctions['press74'] = Press74
+    
 
-class Sheth01( MassFunction ):
+class Sheth01(MassFunction):
     r"""
     Halo mass function model by Sheth et al (2001). It is based on ellipsoidal collapse.
     """
 
     def __init__(self) -> None:
-        
-        self.A  = 0.3222
-        self.a  = 0.707
-        self.p  = 0.3
+        self.A, self.a, self.p = 0.3222, 0.707, 0.3 # parameters
+        return super().__init__()
 
-    def func(self, model: object, s: Any, z: Any, overdensity: Any = None) -> Any:
+    def f(self, 
+          model: object, 
+          s: Any, 
+          z: Any, 
+          overdensity: Any = None, ) -> Any:
         
         A = self.A
         a = self.a
         p = self.p
 
-        nu = DELTA_SC / np.asarray( s )
+        nu = model.collapseDensity( z ) / np.asarray( s )
         f  = A * np.sqrt( 2*a / np.pi ) * nu * np.exp( -0.5 * a * nu**2 ) * ( 1.0 + ( nu**2 / a )**-p )
         return f
-    
 
-class Tinker08( MassFunction ):
+sheth01 = Sheth01()
+builtinMassfunctions['sheth01'] = sheth01
+
+
+class Tinker08(MassFunction):
     r"""
     Halo mass function model by Tinker et al (2008). This model is redshift dependent.
     """
@@ -131,7 +154,13 @@ class Tinker08( MassFunction ):
                                 [1.19,  1.27,  1.34,  1.45,  1.58,  1.80,  1.97,  2.24,  2.44 ],
                             )
         
-    def func(self, model: object, s: Any, z: Any, overdensity: Any = 200.) -> Any:
+        return super().__init__()
+        
+    def f(self, 
+          model: object, 
+          s: Any, 
+          z: Any, 
+          overdensity: Any, ) -> Any:
         
         s   = np.asfarray( s )
         zp1 = np.asfarray( z ) + 1.
@@ -147,11 +176,6 @@ class Tinker08( MassFunction ):
         f = A * ( 1 + ( b / s )**a ) * np.exp( -c / s**2 ) # eqn 3
         return f
     
-
-
-# a dict of predefined models
-available = {
-                'press74' : Press74(), 
-                'sheth01' : Sheth01(), 
-                'tinker08': Tinker08(), 
-            }
+tinker08 = Tinker08()   
+builtinMassfunctions['tinker08'] = tinker08
+ 

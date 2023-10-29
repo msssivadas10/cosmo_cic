@@ -100,25 +100,17 @@ def testResult():
 
 def testCosmology():
 
-    from cic.models.cosmology import Cosmology
+    from cic.models import Cosmology
+    # from cic.models.cosmology import plank18 as cm
 
-    cm = Cosmology(
-                    h = 0.7, 
-                    Om0 = 0.3, 
-                    Ob0 = 0.05, 
-                    sigma8 = 0.8, 
-                    name = 'test_cosmology',
-                  ).set(
-                          power_spectrum = 'eisenstein98_zb', 
-                          mass_function  = 'tinker08',        
-                          linear_bias    = 'tinker10',         
-                       ).createInterpolators()      
-    
+
+    cm = Cosmology(h = 0.7, Om0 = 0.3, Ob0 = 0.05, sigma8 = 0.8, name = 'test_cosmology')
+    cm.set(power_spectrum = 'eisenstein98_zb', mass_function = 'tinker08', halo_bias = 'tinker10')
     cm.normalizePowerSpectrum() 
     
     
     fig, axs = plt.subplots(2, 3, figsize = [12, 6])
-    plt.subplots_adjust(wspace = 0.3, hspace = 0.3)
+    plt.subplots_adjust(wspace = 0.3, hspace = 0.4)
 
     args = dict(marker = 's', ls = '-', ms = 4)
 
@@ -126,40 +118,75 @@ def testCosmology():
 
     k = np.logspace(-3, 3, 21)  
 
-    axs[0,0].loglog(k, cm.matterPowerSpectrum(k, z = zi, exact = False), **args)
+    axs[0,0].loglog(k, cm.matterPowerSpectrum(k, z = zi, grid = True), **args)
     axs[0,0].legend(z_labels, title = 'redshift, z')
-    axs[0,0].set(xlabel = 'k', ylabel = 'P(k, z)')
+    axs[0,0].set(xlabel = 'k', ylabel = 'P(k, z)', title = 'power spectrum')
 
     r = np.logspace(-2, 2, 21)  
 
-    axs[1,0].loglog(k, cm.matterVariance(r, z = zi, exact = False), **args)
+    axs[1,0].loglog(k, cm.matterVariance(r, z = zi, grid = True), **args)
     axs[1,0].legend(z_labels, title = 'redshift, z')
-    axs[1,0].set(xlabel = 'r', ylabel = '$\\sigma^2$(k, z)')
+    axs[1,0].set(xlabel = 'r', ylabel = '$\\sigma^2$(k, z)', title = 'variance')
 
     m = np.logspace(6, 14, 21)  
 
-    axs[0,1].loglog(m, cm.massFunction(m, z = zi, retval = 'dndlnm'), **args)
+    axs[0,1].loglog(m, cm.massFunction(m, z = zi, retval = 'dndlnm', grid = True), **args)
     axs[0,1].legend(z_labels, title = 'redshift, z')
-    axs[0,1].set(xlabel = 'm', ylabel = 'f(m)')
+    axs[0,1].set(xlabel = 'm', ylabel = 'dn/dlnm', title = 'mass function')
 
-    axs[1,1].loglog(m, cm.linearHaloBias(m, z = zi), **args)
+    axs[1,1].loglog(m, cm.biasFunction(m, z = zi, grid = True), **args)
     axs[1,1].legend(z_labels, title = 'redshift, z')
-    axs[1,1].set(xlabel = 'm', ylabel = '$b_1$(m)')
+    axs[1,1].set(xlabel = 'm', ylabel = '$b_1$(m)', title = 'linear bias')
 
     z = np.linspace(0., 5., 21) 
 
     axs[0,2].plot(z, cm.dplus(z, 0), **args)
     axs[0,2].plot(z, cm.dplus(z, 1), **args)
-    axs[0,2].set(xlabel = 'z', ylabel = '$D_+$(z)')
+    axs[0,2].set(xlabel = 'z', ylabel = '$D_+$(z)', title = 'linear growth factor')
 
     axs[1,2].plot(z, cm.angularDiameterDistance(z), **args)
-    axs[1,2].set(xlabel = 'z', ylabel = '$d_A$(z)')
+    axs[1,2].set(xlabel = 'z', ylabel = '$d_A$(z)', title = 'angular dimeter distance')
 
     plt.show()
     
 
     return
 
+def testHaloModel():
+
+    from cic.models.cosmology import plank18
+    from cic.models.halo_model import HaloModel
+    from cic.models.halos.profiles import nfw
+
+
+    plank18.createInterpolationTables()
+    plank18.normalizePowerSpectrum()
+
+
+    hm = HaloModel(plank18, m_min = 1e+08, sigma = 0.2, m_sat = 1e+12, alpha = 1.)
+
+    x = np.linspace(0, 5, 11)
+    z = [0.0, 1.0]
+    
+    # y = hm.galaxyDensity(x)
+    # y = hm.averageHaloMass(x)
+    y = hm.effectiveBias(x)
+
+
+
+    # # r = np.logspace(-2, 2, 201)
+    # # m = 1e+10
+    # # z = 0.0
+
+    # # y = nfw(plank18, r, m, z, 200).flatten()
+
+    plt.figure()
+    # plt.semilogy()
+    plt.plot(x, y, 'o-')
+    # plt.plot(r, np.ones_like(r))
+    plt.show()
+
+    return
 
 if __name__ == '__main__':
     print("testing...")
@@ -167,4 +194,5 @@ if __name__ == '__main__':
     # testCatelogGeneration()
     # testCounting()
     # testResult()
-    testCosmology()
+    # testCosmology()
+    testHaloModel()
