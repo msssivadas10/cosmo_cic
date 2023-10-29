@@ -71,14 +71,6 @@ class _InterpolationTables:
     lnVariance: Interpolator2D      = None # ln of variance: args = ln(r), ln(z+1)
 
 
-@dataclass
-class _ModelSpecs:
-    keys: tuple[str] # keyword or argument names 
-    cls: type        # class or type name
-    models: dict     # dict of available models 
-    target: str      # name of the target attribute
-
-
 class Cosmology:
     r"""
     A Lambda CDM cosmology class.
