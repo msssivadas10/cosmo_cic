@@ -1,2 +1,2 @@
 # ignore all cache files
-**/__pycahe__
+*.pyc
