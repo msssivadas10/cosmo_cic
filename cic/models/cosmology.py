@@ -644,74 +644,64 @@ class Cosmology:
                        exact: bool = False, 
                        ra: float = 1e-03, 
                        rb: float = 1e+03,
-                       window: str = 'tophat', 
-                       integral_pts: int = 10001, 
-                       **kwargs,                ) -> Any:
+                       **kwargs,        ) -> Any:
         r"""
         Calculate the collapse radius of a halo at redshift z.
         """
 
-        lnra, lnrb = np.log(ra), np.log(rb)
+        lnra, lnrb = np.log(self.settings.rInterpMin), np.log(self.settings.rInterpMax)
 
         # cost function: function to find root
         def cost(lnr: float, z: float) -> float:
             y = self.peakHeight(np.exp( lnr ), 
                                 z, 
-                                exact = exact, 
-                                window = window, 
-                                integral_pts = integral_pts ).flatten() - 1.
+                                exact = exact, ) - 1.
             return y
+        
+        # vectorised function returning collapse radius
+        @np.vectorize
+        def result(z: float) -> float: 
+            lnr = brentq(cost, lnra, lnrb, args = (z, ), disp = False, **kwargs)
+            return np.exp( lnr )
 
-        z   = np.ravel( z )
-        res = [ brentq(cost, lnra, lnrb, args = (zi, ), disp = False, **kwargs) for zi in z ]
-        return np.exp( res )
+        return result(z)
     
     def collapseRedshift(self, 
                          r: Any, 
                          exact: bool = False, 
                          ta: float = 1e-08, 
                          tb: float = 1.0,
-                         window: str = 'tophat', 
-                         integral_pts: int = 10001, 
-                         **kwargs,                ) -> Any:
+                         **kwargs,      ) -> Any:
         
         r"""
         Calculate the collapse redshift of a halo of radius r.
         """
 
-        # ta, tb = (za  + 1)**-1, (zb + 1)**-1
-
         # cost function: function to find root
         def cost(t: float, r: float) -> float:
             y = self.peakHeight(r, 
                                 z = t**-1 - 1, 
-                                exact = exact, 
-                                window = window, 
-                                integral_pts = integral_pts ).flatten() - 1.
+                                exact = exact, ) - 1.
             return y
         
+        # vectorised function returning collapse z
+        @np.vectorize
+        def result(r: float) -> float: 
+            ya, yb = cost(ta, r), cost(tb, r)
 
-        r   = np.ravel( r )
-        res = np.zeros_like( r, dtype = 'float' )
-        
-        ya, yb = cost(ta, r), cost(tb, r)
+            # if radius is too large (cost function is +ve at both ends), then the halos are 
+            # collapsed at a redshift later than 0 (return -1)
+            if np.sign(ya) == 1 and np.sign(yb) == 1:
+                return -1.
+            # if radius is too small (cost function is +ve at both ends), then the halos are 
+            # collapsed at a redshift z = inf
+            if np.sign(ya) != 1 and np.sign(yb) != 1:
+                return np.inf
+            # solve for collapse time
+            t = brentq(cost, ta, tb, args = (r, ), disp = False, **kwargs)
+            return t**-1 - 1
 
-        # if radius is too large (cost function is -ve at both ends), then the halos are 
-        # collapsed at a redshift later than the given za and the corresponding return
-        # value is set to -1
-        m      = np.logical_and( np.sign(ya) == 1, np.sign(yb) == 1 )
-        res[m] = -1 
-
-        # if radius is too small (cost function is +ve at both ends), then the halos are 
-        # collapsed at a redshift z = inf        
-        m      = np.logical_and( np.sign(ya) != 1, np.sign(yb) != 1 )
-        res[m] = np.inf
-
-        m      = ( np.sign(ya) != np.sign(yb) )
-        res[m] = [ brentq(cost, ta, tb, args = (ri, ), disp = False, **kwargs) for ri in r[m] ]
-        res[m] = res[m]**-1 - 1
-
-        return res
+        return result(r)
 
 
 
