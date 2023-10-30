@@ -162,28 +162,34 @@ def testHaloModel():
     plank18.createInterpolationTables()
     plank18.normalizePowerSpectrum()
 
+    # hm = HaloModel(plank18, m_min = 1e+08, sigma = 0.2, m_sat = 1e+12, alpha = 1.)
 
-    hm = HaloModel(plank18, m_min = 1e+08, sigma = 0.2, m_sat = 1e+12, alpha = 1.)
+    # test: profile
 
-    x = np.linspace(0, 5, 11)
-    z = [0.0, 1.0]
+    # mvir = np.logspace(6, 16, 11)[:,None]
+    mvir = 1e+8
+
+    # z = np.linspace(0., 5, 3)
+    z = 5.
     
-    # y = hm.galaxyDensity(x)
-    # y = hm.averageHaloMass(x)
-    y = hm.effectiveBias(x)
+    rvir = plank18.lagrangianR(mvir)
+    rstar = np.cbrt( 0.01 ) * rvir
 
+    zcoll = plank18.collapseRedshift(rstar)
+    zcoll = np.where(zcoll < 0., 0., zcoll)
+    # print(zcoll)
 
+    c = 4.0 * (1. + zcoll) / (1. + z)
+    # print(c)
 
-    # # r = np.logspace(-2, 2, 201)
-    # # m = 1e+10
-    # # z = 0.0
+    rs = rvir / c
 
-    # # y = nfw(plank18, r, m, z, 200).flatten()
+    r = np.logspace(-3, 3, 11)
+    y = ((r / rs) * (1 + r / rs)**2)**-1
 
     plt.figure()
-    # plt.semilogy()
-    plt.plot(x, y, 'o-')
-    # plt.plot(r, np.ones_like(r))
+    plt.loglog()
+    plt.plot(r, y, 'o-')
     plt.show()
 
     return
