@@ -100,7 +100,8 @@ def testResult():
 
 def testCosmology():
 
-    from cic.models import Cosmology
+    from cic.models.cosmology import Cosmology
+    # from cic.models import Cosmology
     # from cic.models.cosmology import plank18 as cm
 
 
@@ -156,7 +157,6 @@ def testHaloModel():
 
     from cic.models.cosmology import plank18
     from cic.models.halo_model import HaloModel
-    from cic.models.halos.profiles import nfw
 
 
     plank18.createInterpolationTables()
@@ -194,6 +194,37 @@ def testHaloModel():
 
     return
 
+def testProfile():
+
+    from cic.models.cosmology import plank18
+    from cic.models.halos.density.cmrelations import bullock01, zheng07
+    from cic.models.halos.density.profiles import NFW
+
+
+    plank18.createInterpolationTables()
+    plank18.normalizePowerSpectrum()
+
+    nfw = NFW(cm = bullock01)
+
+    m = 1e+13
+    z = [0., 2., 4.]
+    r = np.logspace(-5, 5, 51)
+
+    fig, axs = plt.subplots(3, 1, sharex=1)
+    plt.subplots_adjust(hspace=0)
+    ax = fig.add_axes([0.05, 0.05, 0.90, 0.90], zorder=-1)
+    ax.spines[:].set_visible(False)
+    ax.set(xlabel='k', ylabel='u(k|m)', xticks = [], yticks = [])
+    for i, m in enumerate([1e+08, 1e+10, 1e+12]):
+        y = nfw(plank18, r, m, z, 200., ft = 1, truncate = 0, grid = 0)
+        axs[i].semilogx()
+        axs[i].plot(r, y)
+        axs[i].legend(z, title="m=%g\nz:" % m, loc='lower left')
+    plt.show()
+
+
+    return
+
 if __name__ == '__main__':
     print("testing...")
 
@@ -201,4 +232,5 @@ if __name__ == '__main__':
     # testCounting()
     # testResult()
     # testCosmology()
-    testHaloModel()
+    # testHaloModel()
+    testProfile()

@@ -4,71 +4,19 @@ import numpy as np
 import warnings
 from scipy.integrate import simpson
 from scipy.optimize import brentq
-from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
+from ._helpers import _ModelsTable, _InterpolationTables, _CosmologySettings
+from ..power_spectrum import PowerSpectrum, WindowFunction, builtinWindows
+from ..halos import MassFunction, HaloBias
+from ..utils import randomString
+from ..utils.constants import *
 
-from . import halos
-from .power_spectrum import linear_models as cps
-from .utils import typestr
-from .utils import randomString, Interpolator1D, Interpolator2D
-from .utils.constants import *
-
-    
 
 class CosmologyError(Exception):
     r"""
     Base class of exceptions raised in cosmology related calculations.
     """
     ...
-
-@dataclass
-class _CosmologySettings:
-    r"""
-    General setting for cosmology and related calculations. 
-    """
-
-    useInterpolation: bool = True # for faster calculations
-
-    # redshift / z
-    zInterpPoints: int   = 21       # number of interpolation points for z
-    zInterpMin: float    = 0.0      # minimum z for interpolation
-    zInterpMax: float    = 10.0     # maximum z for interpolation
-    zIntegralPoints: int = 1001     # number of points for z integration
-    zZero: float         = 0.0      # zero value for z
-    zInfinity: float     = 1e+08    # infinte value for z
-
-    # wavenumber / k
-    kInterpPoints: int   = 101      # number of interpolation points for k
-    kInterpMin: float    = 1e-08    # minimum k for interpolation
-    kInterpMax: float    = 1e+08    # maximum k for interpolation
-    kIntegralPoints: int = 1001     # number of points for k integration
-    kZero: float         = 1e-08    # zero value for k
-    kInfinity: float     = 1e+08    # infinte value k
-    smoothWindow: str    = 'tophat' # window used for smoothing the density 
-
-    # mass / m
-    mInterpPoints: int   = 101      # number of interpolation points for m
-    mInterpMin: float    = 1e+06    # minimum m for interpolation
-    mInterpMax: float    = 1e+16    # maximum m for interpolation
-    mIntegralPoints: int = 1001     # number of points for m integrations
-    mZero: float         = 1e-08    # zero value for m
-    mInfinity: float     = 1e+20    # infinite value for m
-
-    # radius / r
-    rInterpPoints: int   = 101      # number of interpolation points for r
-    rInterpMin: float    = 1e-03    # minimum r for interpolation
-    rInterpMax: float    = 1e+03    # maximum r for interpolation
-    rIntegralPoints: int = 1001     # number of points for r integrations
-    rZero: float         = 1e-04    # zero value for r
-    rInfinity: float     = 1e+04    # infinite value for r
-
-
-@dataclass
-class _InterpolationTables:
-    lnDistance: Interpolator2D      = None # ln of comoving distance: args = ln(z+1)
-    lnDplus: Interpolator1D         = None # ln of linear growth: args = ln(z+1)
-    lnPowerSpectrum: Interpolator2D = None # ln of power spectrum: args = log(k), ln(z+1)
-    lnVariance: Interpolator2D      = None # ln of variance: args = ln(r), ln(z+1)
 
 
 class Cosmology:
@@ -86,13 +34,11 @@ class Cosmology:
                  'ns', 
                  'sigma8', 
                  'Tcmb0', 
-                 'powerSpectrumNorm', 
                  'name', 
                  'settings',
-                 '_model_power_spectrum',
-                 '_model_mass_function',
-                 '_model_halo_bias',
-                 '_interp'    )
+                 '_psnorm', 
+                 '_model',
+                 '_interp' )
     
     def __init__(self, 
                  h: float, 
@@ -106,152 +52,69 @@ class Cosmology:
                  Tcmb0: float = 2.725, 
                  name: str = None,    ) -> None:
         
-        # hubble parameter in 100 km/sec/Mpc
+        #
+        # checking and setting model parameters:
+        #
         if h <= 0:
             raise CosmologyError("hubble parameter must be positive")
-        self.h = h 
-
-        # total matter (baryon + cdm + neutrino) density
         if Om0 < 0:
             raise CosmologyError("matter density must be non-negative")
-        self.Om0 = Om0 
-
-        # baryon density
         if Ob0 < 0:
             raise CosmologyError("baryon density must be non-negative")
-        self.Ob0 = Ob0 
-
-        # massive nuetrino density
         if Onu0 < 0:
             raise CosmologyError("neutrino density must be non-negative")
         if Nnu <= 0:
             raise CosmologyError("neutrino number must be positive")
-        self.Onu0, self.Nnu = Onu0, Nnu
-
         if Ob0 + Onu0 > Om0:
             raise CosmologyError("sum of baryon and neutrino density must be less than matter density")
-
-        # dark-energy (cosmological constant) and curvature density
         if Ode0 is None:
-            self.Ode0 = 1 - self.Om0
-            self.Ok0  = 0.
+            Ode0, Ok0 = 1 - Om0, 0.
+        elif Ode0 < 0:
+            raise CosmologyError("dark energy density must be non-negative")
         else:
-            assert Ode0 >= 0
-            self.Ode0 = Ode0
-            self.Ok0  = 1 - self.Om0 - self.Ode0
-
-
-        self.ns = ns # initial power spectrum index
-
-        if sigma8 is not None:
-            if sigma8 < 0.:
-                raise CosmologyError("sigma8 must be positive")
-        self.sigma8 = sigma8 # matter variance smoothed at 8 Mpc/h scale
-        
-        # cmb temperature 
+            Ok0  = 1 - Om0 - Ode0
+        if sigma8 is None:
+            sigma8 = 1.0
+        elif sigma8 < 0.:
+            raise CosmologyError("value of sigma8 parameter must be positive")
         if Tcmb0 <= 0:
             return CosmologyError("CMB temperature must be positive")
-        self.Tcmb0  = Tcmb0 
-
-        self.powerSpectrumNorm = 1. # power spectrum noramlization factor
-
-        # name for this cosmology model
-        if name is None:
-            name = '_'.join([ 'Cosmology', randomString(16) ])
-        assert isinstance(name, str), "name must be 'str' or None"
-        self.name = name 
-
-        # models:
-        self._model_power_spectrum: cps.PowerSpectrum = None
-        self._model_mass_function: halos.MassFunction = None
-        self._model_halo_bias: halos.HaloBias         = None
         
-        self.settings = _CosmologySettings()
+        self.h      = h      # hubble parameter in 100 km/sec/Mpc
+        self.Om0    = Om0    # total matter (baryon + cdm + neutrino) density
+        self.Ob0    = Ob0    # baryon density
+        self.Onu0   = Onu0   # massive nuetrino density
+        self.Nnu    = Nnu    # number of massive neutrinos
+        self.Ode0   = Ode0   # dark energy density
+        self.Ok0    = Ok0    # curvature energy density 
+        self.ns     = ns     # initial power spectrum index
+        self.sigma8 = sigma8 # matter variance smoothed at 8 Mpc/h scale
+        self.Tcmb0  = Tcmb0 # cosmic microwave background (CMB) temperature in K 
+
+
+        # set a name for this cosmology model
+        if name is None:
+            self.name = '_'.join([ 'Cosmology', randomString(16) ])
+        else:
+            if not isinstance(name, str):
+                raise TypeError( "name must be 'str' or None" )
+            self.name = name 
+
+
+        self._psnorm  = 1. # power spectrum noramlization factor
+        self._model   = _ModelsTable()
         self._interp  = _InterpolationTables()
+        self.settings = _CosmologySettings()
         return
     
-    def set(self, 
-            power_spectrum: str | cps.PowerSpectrum = None, 
-            mass_function: str | halos.MassFunction = None, 
-            halo_bias: str | halos.HaloBias = None) -> None:
-        r"""
-        Set model for quantities like power spectrum, mass function etc.
-        """
+    @property
+    def powerSpectrumNorm(self) -> float: return self._psnorm
 
-        if power_spectrum is not None:
-            if isinstance( power_spectrum, str ):
-                if power_spectrum not in cps.builtinPowerSpectrums:
-                    raise CosmologyError(f"power spectrum model '{power_spectrum}' is not available")
-                power_spectrum = cps.builtinPowerSpectrums.get( power_spectrum ) 
-            if not isinstance( power_spectrum, cps.PowerSpectrum ):
-                raise CosmologyError(f"cannot use a '{typestr(power_spectrum)}' object as power spectrum model")
-            self._model_power_spectrum = power_spectrum
+    @property 
+    def flat(self) -> bool: return abs(self.Ok0) < EPS
 
-        if mass_function is not None:
-            if isinstance( mass_function, str ):
-                if mass_function not in halos.builtinMassfunctions:
-                    raise CosmologyError(f"mass function model '{mass_function}' is not available")
-                mass_function = halos.builtinMassfunctions.get( mass_function ) 
-            if not isinstance( mass_function, halos.MassFunction ):
-                raise CosmologyError(f"cannot use a '{typestr(mass_function)}' object as mass function model")
-            self._model_mass_function = mass_function
-
-        if halo_bias is not None:
-            if isinstance( halo_bias, str ):
-                if halo_bias not in halos.builtinLinearBiases:
-                    raise CosmologyError(f"halo bias model '{halo_bias}' is not available")
-                halo_bias = halos.builtinLinearBiases.get( halo_bias ) 
-            if not isinstance( halo_bias, halos.HaloBias ):
-                raise CosmologyError(f"cannot use a '{typestr(halo_bias)}' object as halo bias model")
-            self._model_halo_bias = halo_bias
-            
-        return
-     
-    def createInterpolationTables(self) -> None:
-
-        lnzap1 = np.log( self.settings.zInterpMin + 1 )
-        lnzbp1 = np.log( self.settings.zInterpMax + 1 )
-        lnka   = np.log( self.settings.kInterpMin )
-        lnkb   = np.log( self.settings.kInterpMax )
-        lnra   = np.log( self.settings.rInterpMin )
-        lnrb   = np.log( self.settings.rInterpMax )
-
-        # growth factor
-        self._interp.lnDplus = Interpolator1D(self.dplus, 
-                                              xa = lnzap1, 
-                                              xb = lnzbp1, 
-                                              xpts = self.settings.zInterpPoints,
-                                              fkwargs = dict(nu = 0, log = True, exact = True), )
-        
-        # matter power spectrum
-        self._interp.lnPowerSpectrum = Interpolator2D(self.matterPowerSpectrum, 
-                                                      xa = lnka, 
-                                                      xb = lnkb,
-                                                      xpts = self.settings.kInterpPoints,
-                                                      ya = lnzap1, 
-                                                      yb = lnzbp1, 
-                                                      ypts = self.settings.zInterpPoints, 
-                                                      fkwargs = dict(nu = 0, 
-                                                                     grid = True, 
-                                                                     log = True, 
-                                                                     exact = True, 
-                                                                     normalize = False, ))
-        
-        # matter power spectrum
-        self._interp.lnVariance = Interpolator2D(self.matterVariance, 
-                                                 xa = lnra, 
-                                                 xb = lnrb,
-                                                 xpts = self.settings.rInterpPoints,
-                                                 ya = lnzap1, 
-                                                 yb = lnzbp1, 
-                                                 ypts = self.settings.zInterpPoints, 
-                                                 fkwargs = dict(nu = 0, 
-                                                                grid = True, 
-                                                                log = True, 
-                                                                exact = True, 
-                                                                normalize = False, ))
-        
-        return
+    @property
+    def K(self) -> float: return np.sqrt( abs( self.Ok0 ) ) / ( SPEED_OF_LIGHT_KMPS * 0.01 )
 
     def __repr__(self) -> str:
         r"""
@@ -261,6 +124,64 @@ class Cosmology:
         attrs    = ['name', 'h', 'Om0', 'Ob0', 'Ode0', 'Onu0', 'Nnu', 'ns', 'sigma8', 'Tcmb0']
         data_str = ', '.join( map(lambda __x: f'{__x}={ getattr(self, __x) }', attrs ) )
         return f"Cosmology(%s)" % data_str
+    
+    def set(self, 
+            power_spectrum: str | PowerSpectrum = None, 
+            mass_function: str | MassFunction = None, 
+            halo_bias: str | HaloBias = None) -> None:
+        r"""
+        Set model for quantities like power spectrum, mass function etc.
+        """
+        
+        if power_spectrum is not None: 
+            self._model.power_spectrum = power_spectrum
+        if mass_function is not None:
+            self._model.mass_function = mass_function
+        if halo_bias is not None:
+            self._model.halo_bias = halo_bias
+        return
+     
+    def createInterpolationTables(self) -> None:
+        r"""
+        Create interpolation tables for fast calculations.
+        """
+
+        lnzap1 = np.log( self.settings.zInterpMin + 1 )
+        lnzbp1 = np.log( self.settings.zInterpMax + 1 )
+        lnka   = np.log( self.settings.kInterpMin )
+        lnkb   = np.log( self.settings.kInterpMax )
+        lnra   = np.log( self.settings.rInterpMin )
+        lnrb   = np.log( self.settings.rInterpMax )
+
+        # growth factor
+        self._interp.create_lnDplus(self.dplus, 
+                                    lnzap1, lnzbp1, self.settings.zInterpPoints,
+                                    nu = 0, log = True, exact = True, )
+        
+        # matter power spectrum
+        self._interp.create_lnPowerSpectrum(self.matterPowerSpectrum, 
+                                            lnka,   lnkb,   self.settings.kInterpPoints, # k-grid
+                                            lnzap1, lnzbp1, self.settings.zInterpPoints, # z-grid
+                                            nu = 0, grid = True, log = True, exact = True, normalize = False, )
+        
+        # matter power spectrum
+        self._interp.create_lnVariance(self.matterVariance, 
+                                       lnra,   lnrb,   self.settings.rInterpPoints, # r-grid
+                                       lnzap1, lnzbp1, self.settings.zInterpPoints, # z-grids
+                                       nu = 0, grid = True, log = True, exact = True, normalize = False, )
+        
+        return
+    
+    def fde(self, 
+            lnzp1: Any, 
+            der: bool = False) -> Any:
+        r"""
+        Return the redshift evolution of dark energy density. 
+        """
+
+        if der:
+            return np.zeros_like(lnzp1, dtype = 'float')
+        return np.ones_like(lnzp1, dtype = 'float')
     
     def lnE2(self, 
              lnzp1: Any, 
@@ -272,14 +193,19 @@ class Cosmology:
         zp1 = np.exp( lnzp1 )
 
         res1 = self.Om0 * zp1**3 
-        res2 = 3. * res1 if der else 0
+        res2 = 0
+        if der:
+            res2 = 3. * res1 
 
-        if abs( self.Ok0 ) > EPS:
+        if not self.flat:
             tmp  = self.Ok0 * zp1**2
             res1 = res1 + tmp
-            res2 = res2 + 2 * tmp if der else 0
+            if der:
+                res2 = res2 + 2 * tmp
 
-        res1 = res1 + self.Ode0
+        res1 = res1 + self.Ode0 * self.fde(lnzp1, 0)
+        if der:
+            res2 = res2 + self.Ode0 * self.fde(lnzp1, 1)
 
         return 0.5 * res2 / res1 if der else np.log( res1 )
     
@@ -296,15 +222,16 @@ class Cosmology:
         Calculate the evolution of matter density.
         """
 
-        zp1 = np.asfarray(z) + 1.
-        return self.Om0 * zp1**3 / self.E(z)**2
+        zp1 = np.add(z, 1)
+        return self.Om0 * zp1**3 /self.E(z)**2
     
     def Ode(self, z: Any) -> float:
         r"""
         Calculate the evolution of dark-energy density.
         """
 
-        return self.Ode0 / self.E(z)**2
+        lnzp1 = np.log( np.add(z, 1) )
+        return self.Ode0 * self.fde(lnzp1) / self.E(z)**2
     
     def matterDensity(self, z: Any) -> float:
         r"""
@@ -325,7 +252,11 @@ class Cosmology:
     # Distance calculations
     #
     
-    def comovingDistance(self, z: Any) -> float:
+    def comovingDistance(self, 
+                         z: Any,
+                         nu: int = 0,
+                         log: bool = False, 
+                         exact: bool = False, ) -> float:
         r"""
         Calculate the comoving distance corresponding to redshift z.
         """
@@ -341,7 +272,11 @@ class Cosmology:
         res = simpson( res, dx = dx, axis = -1 )
         return res * SPEED_OF_LIGHT_KMPS * 0.01 # Mpc/h
 
-    def luminocityDistance(self, z: Any) -> float:
+    def luminocityDistance(self, 
+                           z: Any, 
+                           nu: int = 0,
+                           log: bool = False, 
+                           exact: bool = False, ) -> float:
         r"""
         Calculate the luminocity distance corresponding to redshift z.
         """
@@ -349,7 +284,7 @@ class Cosmology:
         r = self.comovingDistance( z )
 
         if self.Ok0:
-            K = np.sqrt( abs( self.Ok0 ) ) / ( SPEED_OF_LIGHT_KMPS * 0.01 )
+            K = self.K
             if self.Ok0 < 0.0:
                 r = np.sin( K*r ) / K # k > 0 : closed/spherical
             else:
@@ -357,7 +292,11 @@ class Cosmology:
         
         return r * ( 1 + np.asfarray( z ) ) # Mpc/h
 
-    def angularDiameterDistance(self, z: Any) -> float:
+    def angularDiameterDistance(self, 
+                                z: Any, 
+                                nu: int = 0,
+                                log: bool = False, 
+                                exact: bool = False, ) -> float:
         r"""
         Calculate the angular diameter distance corresponding to redshift z.
         """
@@ -373,12 +312,13 @@ class Cosmology:
         """
 
         value = np.asfarray(value)
+        dist  = self.angularDiameterDistance( z )
 
         if inverse: # angular to physical 
-            return value * self.angularDiameterDistance( z ) * np.pi / 180. / 3600.
+            return value * dist * np.pi / 180. / 3600.
         
         # physical to angular
-        return value / self.angularDiameterDistance( z ) * 180. / np.pi * 3600.
+        return value / dist * 180. / np.pi * 3600.
             
 
     #
@@ -443,7 +383,7 @@ class Cosmology:
         Calculate the linear matter matter power spectrum.
         """
 
-        if self._model_power_spectrum is None:
+        if self._model.power_spectrum is None:
             raise CosmologyError("no power spectrum model is linked to this cosmology")
         
         if nu not in (0, 1):
@@ -466,7 +406,7 @@ class Cosmology:
         # exact calculations
         #
         
-        res = self._model_power_spectrum(self, 
+        res = self._model.power_spectrum(self, 
                                          lnk, 
                                          lnzp1, 
                                          der   = bool(nu), 
@@ -490,7 +430,7 @@ class Cosmology:
         if nu not in range(3):
             raise ValueError( "nu can only be 0, 1 or 2" )        
 
-        if self._model_power_spectrum is None:
+        if self._model.power_spectrum is None:
             raise CosmologyError("no power spectrum model is linked to this cosmology")
         
         lnr   = np.asfarray( r ) if log else np.log( r )
@@ -509,12 +449,18 @@ class Cosmology:
         #
         # exact calculations
         #
+
+        win = self.settings.smoothWindow
+        if isinstance( win, str ):
+            if win not in builtinWindows:
+                raise ValueError("window function '%s' is not available" % win)
+            win = builtinWindows[win]
         
-        res = self._model_power_spectrum.matterVariance(self, 
+        res = self._model.power_spectrum.matterVariance(self, 
                                                         lnr, 
                                                         lnzp1, 
                                                         nu     = nu, 
-                                                        window = self.settings.smoothWindow, 
+                                                        window = win, 
                                                         ka     = self.settings.kZero,
                                                         kb     = self.settings.kInfinity,
                                                         pts    = self.settings.kIntegralPoints, 
@@ -529,13 +475,13 @@ class Cosmology:
         Normalize the matter power spectrum useing `sigma8` values.
         """
         
-        self.powerSpectrumNorm = 1.        
+        self._psnorm = 1.        
         if reset:
             return 
         
-        calculatedValue        = self.matterVariance( 8.0, exact = not self.settings.useInterpolation )
-        observedValue          = self.sigma8**2
-        self.powerSpectrumNorm = observedValue / calculatedValue
+        calculatedValue = self.matterVariance( 8.0, exact = not self.settings.useInterpolation )
+        observedValue   = self.sigma8**2
+        self._psnorm    = observedValue / calculatedValue
         return 
     
     #
@@ -609,10 +555,10 @@ class Cosmology:
         Calculate the halo mass-function.
         """
 
-        if self._model_mass_function is None:
+        if self._model.mass_function is None:
             raise CosmologyError("no mass-function model is linked to this cosmology")
         
-        res = self._model_mass_function(self,
+        res = self._model.mass_function(self,
                                         m = m, 
                                         z = z, 
                                         overdensity = overdensity, 
@@ -629,10 +575,10 @@ class Cosmology:
         Calculate the halo bias function.
         """
 
-        if self._model_halo_bias is None:
+        if self._model.halo_bias is None:
             raise CosmologyError("no bias model is linked to this cosmology")
         
-        res = self._model_halo_bias(self, 
+        res = self._model.halo_bias(self, 
                                     m = m, 
                                     z = z, 
                                     overdensity = overdensity, 
@@ -642,8 +588,6 @@ class Cosmology:
     def collapseRadius(self, 
                        z: Any, 
                        exact: bool = False, 
-                       ra: float = 1e-03, 
-                       rb: float = 1e+03,
                        **kwargs,        ) -> Any:
         r"""
         Calculate the collapse radius of a halo at redshift z.
@@ -669,8 +613,6 @@ class Cosmology:
     def collapseRedshift(self, 
                          r: Any, 
                          exact: bool = False, 
-                         ta: float = 1e-08, 
-                         tb: float = 1.0,
                          **kwargs,      ) -> Any:
         
         r"""
@@ -687,6 +629,7 @@ class Cosmology:
         # vectorised function returning collapse z
         @np.vectorize
         def result(r: float) -> float: 
+            ta, tb = 1e-08, 1.
             ya, yb = cost(ta, r), cost(tb, r)
 
             # if radius is too large (cost function is +ve at both ends), then the halos are 
@@ -702,33 +645,4 @@ class Cosmology:
             return t**-1 - 1
 
         return result(r)
-
-
-
-#
-# some ready-to-use cosmology models:
-#
-
-builtinCosmology = {}
-
-# cosmology with parameters from Plank et al (2018)
-plank18 =  Cosmology(h = 0.6790, Om0 = 0.3065, Ob0 = 0.0483, Ode0 = 0.6935, sigma8 = 0.8154, ns = 0.9681, Tcmb0 = 2.7255, name = 'plank18')
-plank18.set(power_spectrum = 'eisenstein98_zb', mass_function = 'tinker08', halo_bias = 'tinker10')
-builtinCosmology['plank18'] = plank18
-
-# cosmology with parameters from Plank et al (2015)
-plank15 =  Cosmology(h = 0.6736, Om0 = 0.3153, Ob0 = 0.0493, Ode0 = 0.6947, sigma8 = 0.8111, ns = 0.9649, Tcmb0 = 2.7255, name = 'plank15')
-plank15.set(power_spectrum = 'eisenstein98_zb', mass_function = 'tinker08', halo_bias = 'tinker10')
-builtinCosmology['plank15'] = plank15
-
-# cosmology with parameters from WMAP survay
-wmap08 =  Cosmology(h = 0.719, Om0 = 0.2581, Ob0 = 0.0441, Ode0 = 0.742, sigma8 = 0.796, ns = 0.963, Tcmb0 = 2.7255, name = 'wmap08')
-wmap08.set(power_spectrum = 'eisenstein98_zb', mass_function = 'tinker08', halo_bias = 'tinker10')
-builtinCosmology['wmap08'] = wmap08
-
-# cosmology for millanium simulation
-millanium = Cosmology(h = 0.73, Om0 = 0.25, Ob0 = 0.045, sigma8 = 0.9, ns = 1.0, Tcmb0 = 2.7255, name = 'millanium')
-millanium.set(power_spectrum = 'eisenstein98_zb', mass_function = 'tinker08', halo_bias = 'tinker10')
-builtinCosmology['millanium'] = millanium
-
 

@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from .mass_function import MassFunction, builtinMassfunctions
-from .linear_bias import HaloBias, builtinLinearBiases
-from .profiles import Profile, builtinProfiles
+from .bias import HaloBias, builtinLinearBiases
+from .density import DensityProfile, CMRelation, builtinProfiles, builtinCMRelations
 
-__all__ = ['linear_bias', 'mass_function']
+__all__ = ['bias', 'mass_function', 'density']
