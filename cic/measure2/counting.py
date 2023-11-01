@@ -5,7 +5,7 @@ import logging
 import numpy as np, pandas as pd
 from scipy.stats import binned_statistic_dd
 from typing import Any 
-from .utils2 import MeasurementError, Box, Rectangle, Box3D, CountResult
+from .utils import MeasurementError, Box, CountResult
 
 DISABLE_MPI = False # switch indicating if to disable parallel processing with MPI
 
@@ -16,7 +16,7 @@ except ModuleNotFoundError:
     logging.warning( "module 'mpi4py' is not found, disabling parallel processing" )
 
 
-def getCommunicatorInfo():
+def getCommunicatorInfo() -> tuple:
     r"""
     Return the MPI communication details: the communicator object, rank and size 
     of the process. 
@@ -27,7 +27,7 @@ def getCommunicatorInfo():
     comm = MPI.COMM_WORLD
     return comm, comm.rank, comm.size
 
-def setBarrier(comm):
+def setBarrier(comm: Any) -> Any:
     r"""
     Wrapper over the MPI `Barrier` method.
     """
@@ -227,17 +227,11 @@ def countObjectsRectangularCell(path: str,
 # Object counting for CIC
 ########################################################################################################
 
-def prepareRegion(path: str, 
-                  output_path: str,
+def prepareRegion(output_path: str,
                   region: Box, 
                   patchsize: float | list[float], 
                   pixsize: float | list[float],
-                  bad_regions: list[Box] = [],
-                  use_masks: list[str] = [], 
-                  data_filters: list[str] = [], 
-                  expressions: list[str] = [],
-                  coord: list[str] = None,
-                  **csv_opts: Any        ) -> None:
+                  bad_regions: list[Box] = [],  ) -> None:
     r"""
     Prepare a region for counting. 
     """
@@ -246,6 +240,7 @@ def prepareRegion(path: str,
         region = Box.create( region )
     except Exception as _e:
         raiseError( f"error converting region to 'Box': {_e}" )
+    dim = region.dim
 
     #
     # dividing the region into patches
@@ -273,6 +268,10 @@ def prepareRegion(path: str,
         bad_regions = [ Box.create( bad_region ) for bad_region in bad_regions ]
     except Exception as _e:
         raiseError( f"error converting bad region to 'Box': {_e}" )
+    
+    for bad_region in bad_regions:
+        if not bad_region.samedim( region ):
+            raiseError( "dimension mismatch between one bad region and region" )
 
     # correcting the patchsizes to be exacly equal to a nearest multiple of pixsize
     # this make sure that the cell bins are correctly calculated in the base function
@@ -283,15 +282,201 @@ def prepareRegion(path: str,
     patches      = [] # patch rectangles
     good_patches = [] # flag telling if the patch intesect with a bad region
 
-    
     x_min, x_max = np.ravel( region.min ), np.ravel( region.max )
-    x_patches    = np.floor( ( x_max - x_min ) / patchsize ).astype('int') # number of patches along each direction
-    patch_coords = [ np.arange(x_min[x], x_max[x], patchsize[x]) for x in range( region.dim )]
-    patch_coords = np.meshgrid(*patch_coords, indexing = 'ij')
-    patch_coords = np.stack([ np.ravel(x) for x in patch_coords ], axis = -1)
-    for p in range( patch_coords.size ):
-        patch = Box( patch_coords[p,:], patch_coords[p,:] + patchsize )
-        bad   = False
+    patch_coords = x_min + 0.
+    stop         = False
+    while 1:
+        patch = Box(patch_coords + 0., patch_coords + patchsize)
+        patches.append(patch)
+        good_patches.append(True)
         for bad_region in bad_regions:
+            if patch.intersect( bad_region ):
+                good_patches[-1] = False
+                break
+
+        patch_coords[dim-1] += patchsize[dim-1]
+        for x in reversed( range( dim ) ):
+            if patch_coords[x] >= x_max[x]:
+                patch_coords[x]    = x_min[x]
+                patch_coords[x-1] += patchsize[x-1]
+                if x == 0:
+                    stop = True
+        if stop:
+            break
+
+    patch_count = len( patches )
+    if patch_count == 0: # no patches in this region
+        raiseError( "cannot make patches with given sizes in the region" )
+
+    badpatch_count = patch_count - sum(good_patches)
+    if badpatch_count == patch_count: # all the patches are bad
+        raiseError( "no good patches left in the region :(" )
+
+    logging.info("created %d patches (%d bad patches)", patch_count, badpatch_count)
+
+
+    if MPI.COMM_WORLD.rank != 0: return # file I/O only at rank 0
+
+    #
+    # saving the results for later use
+    #
+    res = CountResult(region      = region, 
+                      patches     = patches,
+                      patch_flags = good_patches,
+                      pixsize     = pixsize, 
+                      patchsize   = patchsize   )
+
+    if os.path.exists( output_path ):
+        logging.warning( "file '%s' already exist, will be over-written", output_path )
+
+    try:
+        res.save( output_path )
+    except Exception as _e:
+        raiseError( f"failed to write results to file '{ output_path }'. { _e }" )
+
+    logging.info( "results saved to '%s' :)", output_path )
+    
+    return
+
+def estimateCellQuality(path: str, 
+                        patch_details_path: str,
+                        output_path: str = None,
+                        use_masks: list[str] = [], 
+                        data_filters: list[str] = [], 
+                        expressions: list[str] = [],
+                        coord: list[str] = None,
+                        **csv_opts: Any        ) -> None:
+    r"""
+    Calculate the cell quality (completeness) factor using random objects.
+    """
+
+    #
+    # loading patch details
+    #
+    logging.info( "loading patch details from file '%s'", patch_details_path )   
+
+    try:
+        res = CountResult.load( patch_details_path )
+    except Exception as _e:
+        raiseError( f"failed to load patch details file '{ patch_details_path }'. { _e }"  )
+
+    #
+    # estimating the cell quality factor (fraction of non-masked objects)
+    #
+    logging.info("started counting objects")
+
+    total, unmasked = countObjectsRectangularCell(path         = path, 
+                                                  region       = res.region,
+                                                  patchsize    = res.patchsize, 
+                                                  pixsize      = res.pixsize, 
+                                                  use_masks    = use_masks, 
+                                                  data_filters = data_filters, 
+                                                  expressions  = expressions, 
+                                                  coord        = coord, 
+                                                  **csv_opts,  )
+    
+    logging.info("finished counting objects!")
+
+    if total is None: return # result is returned only at rank 0 (this is not 0!)
+
+    # remove counts from bad patches
+    # good_patches    = res.patch_flags
+    # total, unmasked = total[..., good_patches], unmasked[..., good_patches]
+
+    # goodness factor calculation 
+    non_empty = ( total > 0 )
+    unmasked[non_empty] = unmasked[non_empty] / total[non_empty] # re-write to save memory!
+    res = res.add(value = unmasked, label = 'cell_quality')
+
+    logging.info("calculated cell quality factor!")
+
+    #
+    # saving the results for later use
+    #
+
+    output_path = patch_details_path if output_path is None else output_path
+    if os.path.exists( output_path ):
+        logging.warning( "file '%s' already exist, will be over-written", output_path )
+
+    try:
+        res.save( output_path )
+    except Exception as _e:
+        raiseError( f"failed to write results to file '{ output_path }'. { _e }" )
+
+    logging.info( "results saved to '%s' :)", output_path )
+    return
+
+def estimateObjectCount(path: str, 
+                        patch_details_path: str,
+                        output_path: str = None,
+                        include_patch_details: bool = True,
+                        use_masks: list[str] = [], 
+                        data_filters: list[str] = [], 
+                        expressions: list[str] = [],
+                        coord: list[str] = None,
+                        **csv_opts: Any        ) -> None:
+    r"""
+    Count objects in cells in a region.
+    """
+
+    #
+    # loading patch details
+    #
+    logging.info( "loading patch details from file '%s'", patch_details_path )   
+
+    try:
+        res = CountResult.load( patch_details_path )
+    except Exception as _e:
+        raiseError( f"failed to load patch details file '{ patch_details_path }'. { _e }"  )
+    
+    # clear existing data, if not want to include patch data  
+    if not include_patch_details:
+        res.data.clear()
+    
+    logging.info( "loaded patch details" )
+
+    #
+    # counting objects in cells 
+    #
+
+    logging.info("started counting objects")
+
+    total, unmasked = countObjectsRectangularCell(path         = path, 
+                                                  region       = res.region,
+                                                  patchsize    = res.patchsize, 
+                                                  pixsize      = res.pixsize, 
+                                                  use_masks    = use_masks, 
+                                                  data_filters = data_filters, 
+                                                  expressions  = expressions, 
+                                                  coord        = coord, 
+                                                  **csv_opts,  )
+    
+    logging.info("finished counting objects!")
+
+    if total is None: return # result is returned only at rank 0 (this is not 0!)
+
+    # remove counts from bad patches
+    # good_patches    = res.patch_flags
+    # total, unmasked = total[..., good_patches], unmasked[..., good_patches]
+
+    res.add(value = total,    label = 'total_count'   )
+    res.add(value = unmasked, label = 'unmasked_count')
+
+    #
+    # saving the results for later use
+    #
+
+    output_path = patch_details_path if output_path is None else output_path
+    if os.path.exists( output_path ):
+        logging.warning( "file '%s' already exist, will be over-written", output_path )
+
+    try:
+        res.save( output_path )
+    except Exception as _e:
+        raiseError( f"failed to write results to file '{ output_path }'. { _e }" )
+
+    logging.info( "results saved to '%s' :)", output_path )
+    
+    return
 
 
