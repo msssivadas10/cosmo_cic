@@ -720,33 +720,22 @@ class CountResult:
 
 
 
-x = []
-for i in range(3):
-    x.append([])
-    for j in range(4):
-            x[i].append([])
-            for k in range(5):
-                    x[i][j].append(0) # k + 5*(j + 4*i)
-
-# s = (3,4,5)
-# for i in range(3):
-#     for j in range(4):
-#             for k in range(5):
-#                     print( i,j,k,k + 5*(j + 4*i) )
-
-s = np.array([3,4,5])
-c = np.array([0,0,0])
-for p in range(70):
-    print(c, c[2] + 5*(c[1] + 4*c[0]))
-    c[2] += 1
-    for a in reversed(range(3)):
-        if c[a] == s[a]:
-            c[a] = 0
-            c[a-1] += 1
-        else:
-            break
-
-
-
-# print(np.array(x))
-# print(np.arange(3*4*5).reshape((3,4,5)))
+# s = np.array([3,4,5])
+# c = np.array([0,0,0])
+# c0 = c.copy()
+# e = 0
+# while 1:
+#     m = c[0]
+#     for a in range(1, len(s)):
+#         m = m*s[a] + c[a]
+#     # x[c[0]][c[1]][c[2]] = m
+#     c[2] += 1
+#     for a in reversed(range(len(s))):
+#         if c[a] == s[a]:
+#             c[a] = 0
+#             c[a-1] += 1
+#             if a == 0:
+#                 e = 1
+#     print(c0, c, m)
+#     if e:
+#         break

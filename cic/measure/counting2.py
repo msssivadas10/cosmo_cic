@@ -165,8 +165,11 @@ def countObjectsRectangularCell(path: str,
             #  
             df[coord] = df[coord] - x_min # coordinates relative to region
 
-            xp = np.floor( df[coord] / patchsize ).astype('int')  # nD patch index
-            df['patch'] = np.ravel_multi_index( xp.T, x_patches ) # patch index (flattened)
+            xp    = np.floor( df[coord] / patchsize ).astype('int')  # nD patch index
+            patch = xp[:,0] # flat patch index
+            for x in range( 1, region.dim ):
+                patch = patch * x_patches[x] * xp[:,x]
+            df['patch'] = patch # np.ravel_multi_index( xp.T, x_patches ) 
 
             # coordinates relative to patch
             df[coord] = df[coord] - xp * patchsize 
@@ -283,4 +286,12 @@ def prepareRegion(path: str,
     
     x_min, x_max = np.ravel( region.min ), np.ravel( region.max )
     x_patches    = np.floor( ( x_max - x_min ) / patchsize ).astype('int') # number of patches along each direction
-    
+    patch_coords = [ np.arange(x_min[x], x_max[x], patchsize[x]) for x in range( region.dim )]
+    patch_coords = np.meshgrid(*patch_coords, indexing = 'ij')
+    patch_coords = np.stack([ np.ravel(x) for x in patch_coords ], axis = -1)
+    for p in range( patch_coords.size ):
+        patch = Box( patch_coords[p,:], patch_coords[p,:] + patchsize )
+        bad   = False
+        for bad_region in bad_regions:
+
+
