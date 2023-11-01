@@ -114,6 +114,11 @@ def countObjectsRectangularCell(path: str,
     logging.info( "started counting objects in cell" )
     __t_init = time.time()
 
+    # NOTE: chunksize is a required csv options, since loading data as iterable not work without it. 
+    # a large number is used to make sure that the data will read as an iterable of minimum size 1
+    if 'chunksize' not in csv_opts: 
+        csv_opts['chunksize'] = 100000
+
     # before starting calculations, try if the data can be loaded properly with given options:
     try:
         with pd.read_csv(path, **csv_opts ) as df_iter:
