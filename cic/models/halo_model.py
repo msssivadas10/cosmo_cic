@@ -19,10 +19,7 @@ class HaloError(Exception):
 
 class HaloModel:
 
-    __slots__ = ('lnMmin', 'lnMsat', 'lnMcut', 'sigma', 'alpha', 'overdensity', 'cosmo', 'profile',
-                 '_interpolate_galaxy_density',
-                 '_interpolate_mean_halo_mass',
-                 '_interpolate_effective_bias')
+    __slots__ = ('lnMmin', 'lnMsat', 'lnMcut', 'sigma', 'alpha', 'overdensity', 'cosmo', 'profile')
 
     def __init__(self,
                  cosmo: Cosmology, 
@@ -46,9 +43,9 @@ class HaloModel:
         
         # cosmology model
         assert isinstance(cosmo, Cosmology), "cosmo must be a 'Cosmology' object"
-        assert cosmo._model_mass_function is not None, "cosmology should have a mass function model"
-        assert cosmo._model_halo_bias is not None, "cosmology should have a bias model"
-        assert cosmo._model_power_spectrum is not None, "cosmology should have a power spectrum model"
+        assert cosmo._model.mass_function is not None, "cosmology should have a mass function model"
+        assert cosmo._model.halo_bias is not None, "cosmology should have a bias model"
+        assert cosmo._model.power_spectrum is not None, "cosmology should have a power spectrum model"
         self.cosmo = cosmo 
 
         # halo density profile
@@ -56,11 +53,6 @@ class HaloModel:
 
         # halo overdensity value
         self.overdensity = overdensity
-
-        # interpolation tables
-        self._interpolate_galaxy_density = None
-        self._interpolate_mean_halo_mass = None
-        self._interpolate_effective_bias = None
 
     def centralCount(self, m: Any) -> Any:
         r"""

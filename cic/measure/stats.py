@@ -11,7 +11,6 @@ from typing import Any, Callable
 
 @dataclass
 class ResampleResult:
-
     num_samples: int  # number of sub samples used
     std_estimate: Any # values of the usual estimate of the statistics
     estimate: Any     # jackknife estimate of the statistics
@@ -19,8 +18,7 @@ class ResampleResult:
     bias: Any         # bias of the estimator
 
     @property
-    def correct_estimate(self): 
-        return self.std_estimate - self.bias # bias corrected estimate
+    def correct_estimate(self): return self.std_estimate - self.bias # bias corrected estimate
 
 
 def jackknife(statistic: Callable):

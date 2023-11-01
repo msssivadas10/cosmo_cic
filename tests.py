@@ -153,47 +153,6 @@ def testCosmology():
 
     return
 
-def testHaloModel():
-
-    from cic.models.cosmology import plank18
-    from cic.models.halo_model import HaloModel
-
-
-    plank18.createInterpolationTables()
-    plank18.normalizePowerSpectrum()
-
-    # hm = HaloModel(plank18, m_min = 1e+08, sigma = 0.2, m_sat = 1e+12, alpha = 1.)
-
-    # test: profile
-
-    # mvir = np.logspace(6, 16, 11)[:,None]
-    mvir = 1e+8
-
-    # z = np.linspace(0., 5, 3)
-    z = 5.
-    
-    rvir = plank18.lagrangianR(mvir)
-    rstar = np.cbrt( 0.01 ) * rvir
-
-    zcoll = plank18.collapseRedshift(rstar)
-    zcoll = np.where(zcoll < 0., 0., zcoll)
-    # print(zcoll)
-
-    c = 4.0 * (1. + zcoll) / (1. + z)
-    # print(c)
-
-    rs = rvir / c
-
-    r = np.logspace(-3, 3, 11)
-    y = ((r / rs) * (1 + r / rs)**2)**-1
-
-    plt.figure()
-    plt.loglog()
-    plt.plot(r, y, 'o-')
-    plt.show()
-
-    return
-
 def testProfile():
 
     from cic.models.cosmology import plank18
@@ -225,6 +184,40 @@ def testProfile():
 
     return
 
+def testHaloModel():
+
+    from cic.models.cosmology import plank18
+    from cic.models.halo_model import HaloModel
+    from scipy.optimize import brentq
+
+
+    plank18.createInterpolationTables()
+    plank18.normalizePowerSpectrum()
+
+    hm = HaloModel(plank18, m_min = 1e+08, sigma = 0.2, m_sat = 1e+12, alpha = 1.)
+
+    z = np.linspace(0, 5, 11)
+    m = np.logspace(6, 20, 201)
+    # y = hm.galaxyDensity(z)
+
+    y1, y2 = 1e-08, 1e+05
+    plt.figure()
+    for i, z in enumerate([0.0, 5.0, 10.0]):
+        m5 = plank18.lagrangianM(np.exp(brentq(lambda lnr, z: plank18.peakHeight(np.exp(lnr), z) - 5., 
+                                               np.log(1e-03), 
+                                               np.log(1e+03), 
+                                               (z, ))))
+        y = hm.totalCount( m ) * hm.massFunction(m, z, 'dndlnm', False) * hm.biasFunction( m, z, False )
+        plt.loglog(m, y, '-', color = 'C%d'%i, label = '%g' % z)
+        plt.vlines(m5, y1, y2, ['C%d'%i], ['--'], lw = 1)
+    plt.ylim(y1, y2)
+    plt.title("$m \\frac{dn(m)}{d\\ln(m)}N(m)b(m)$")
+    plt.legend(title = 'z')
+    plt.show()
+
+    return
+
+
 if __name__ == '__main__':
     print("testing...")
 
@@ -232,5 +225,5 @@ if __name__ == '__main__':
     # testCounting()
     # testResult()
     # testCosmology()
-    # testHaloModel()
-    testProfile()
+    # testProfile()
+    testHaloModel()
