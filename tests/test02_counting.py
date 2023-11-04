@@ -19,42 +19,6 @@ logging.disable()
 datafile = 'p3catalog.csv'
 outfile  = 'test_counts1.json'
 
-def doCounting_old():
-
-    from cic.measure.utils import Rectangle
-    from cic.measure.counting import prepareRegion, countObjects
-    from cic.measure.utils import CountResult
-    from cic.measure.stats import jackknife
-
-    prepareRegion(path = datafile,
-                  output_path = outfile,
-                  region = Rectangle(0., 0., 40., 10.),
-                  patchsize_x = 10.,
-                  patchsize_y = 10.,
-                  pixsize = 1.,
-                  bad_regions = [],
-                  use_masks = ['g_mask', 'r_mask', 'i_mask'],
-                  data_filters = [],
-                  expressions = [],
-                  x_coord = 'ra',
-                  y_coord = 'dec',
-                  chunksize = 10000,
-                  header = 0,)
-    
-    countObjects(path = datafile, 
-                 patch_details_path = outfile, 
-                 output_path = outfile, 
-                 include_patch_details = 1,
-                 use_masks =  ['g_mask', 'r_mask', 'i_mask'], 
-                 data_filters = ['g_magnitude < 22.0'], 
-                 expressions = [], 
-                 x_coord = 'ra', 
-                 y_coord= 'dec', 
-                 chunksize = 10000,
-                 header = 0,)
-    
-    return
-
 def doCounting():
 
     from cic.measure2.utils import Rectangle
@@ -136,6 +100,7 @@ def checkResult():
     plt.legend(title = "count pmf")
     plt.xlabel("n"); plt.ylabel("p(n)") 
     plt.show()
+
     return
 
 
