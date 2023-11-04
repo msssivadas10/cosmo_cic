@@ -1,2 +1,4 @@
 # ignore all cache files
 *.pyc
+test_*.json
+/test_*
