@@ -7,10 +7,10 @@ r"""
 `cicapp.py` can be used to measure count-in-cells in a general N-dimensional recatangular box 
 region, with rectangular or cubic cells. 
 
-Usage: ./cicapp [-h] [--opts OPTS] [--flag FLAG] [--logs LOGS] [--use-mpi USE_MPI]
+Usage: ./cicapp.py [-h] [--flag FLAG] [--logs LOGS] [--no-mpi] opts
 
-Input options for counting are specified in the options file OPTS, in YAML or JSON format. 
-Valid parameters are: 
+Input options for counting are specified in the options file opts, in YAML or JSON format. 
+Valid parameters are (NOTE: examples are in JSON format): 
 
 ================= ============================================================ ===================================                                                           
 Field             Description                                                  Notes                                            
@@ -22,7 +22,7 @@ Field             Description                                                  N
 `pixsize`         Size of the cells                                            similar to `patchsize`                         
 `patchOutputFile` File to which spatial information is written (or read)                                                              
 `countOutputFile` File to which counting results are written                                                              
-`variables`       Mapping for $-variable replacement                           e.g., `{'x': 'x_coordinate'}`                                         
+`variables`       Mapping for $-variable replacement                           e.g., `{"x": "x_coordinate"}`                                         
 `randomCatalog`   Specifications of the random catalog                                                                
 `objectCatalog`   Specifications of the object catalog                                                           
 ================= =========================================================== ====================================                                                                 
@@ -37,7 +37,8 @@ Field             Description                                                 No
 `masks`           Names of the mask features                                
 `filters`         Data filtering expressions                                  Can use substitute variable names  
 `expressions`     Other expressions to evaluate on data, before processing    ''                                   
-`csvOptions`      Other CSV read options, such as `chunksize`, `header`       Passed to `pandas.read_csv`                         
+`csvOptions`      Other CSV read options, such as `chunksize`, `header`       Passed to `pandas.read_csv`   
+`extraBins`       Extra bins used for counting, as key-value pairs            e.g., `{"z": [-1.0, 0.0, 1.0, 2.0]}`                      
 ================= =========================================================== ====================================
 
 Counting process can be controlled be FLAG:
@@ -47,7 +48,7 @@ Counting process can be controlled be FLAG:
 
 LOGS specify the location to which runtime files are saved.
 
-Disable parellel processing by setting USE_MPI to 0.
+Disable parellel processing by using --no-mpi flag.
 
 """
 
@@ -85,13 +86,13 @@ class App(Application):
     """
     
     def __init__(self) -> None:
-        super().__init__(name = 'cic.app', description = self.__doc__)
+        super().__init__(name = 'cicapp.py', description = self.__doc__)
 
     def create_argslist(self) -> None:
-        self.add_argument('--opts'   , help = 'path to the input options file', type = str, required = 0  )
-        self.add_argument('--flag'   , help = 'flags to control the execution', type = int, default  = 0  )
-        self.add_argument('--logs'   , help = 'path to create the log files'  , type = str, default  = '.')
-        self.add_argument('--use-mpi', help = 'use multiprocessing using mpi' , type = int, default  = 1  )
+        self.add_argument('opts'    , help = 'path to the input options file'    , type   = str         ,               )
+        self.add_argument('--flag'  , help = 'flags to control the execution'    , type   = int         , default  = 0  )
+        self.add_argument('--logs'  , help = 'path to create the log files'      , type   = str         , default  = '.')
+        self.add_argument('--no-mpi', help = 'disable multiprocessing using mpi' , action = 'store_true',               )
 
     def create_options(self) -> None:
         self.add_option('id'                        , help = 'id for the counting job'                  , cls = 'str',                                                    )
@@ -125,7 +126,7 @@ class App(Application):
         if not self.args.opts: self.exit("no input files are given, exiting :)")
 
         # loading options:
-        self.load_options(self.args.opts)     
+        self.load_options(self.args.opts)   
 
         # save loaded options to a file:
         __id = self.options['id']
@@ -135,7 +136,7 @@ class App(Application):
         with open(os.path.join(task_rootdir, 'used_options'), 'w') as fp: self.options.print(buffer = fp)
 
         # configure logging:
-        rank    = _get_parellel_process_info(self.args.use_mpi).rank
+        rank    = _get_parellel_process_info(not self.args.no_mpi).rank
         logpath = os.path.join(task_rootdir, 'logs')
         if not os.path.exists(logpath): os.makedirs(logpath)
         logpath = os.path.join(logpath, "%d.log" % rank )
@@ -175,8 +176,6 @@ class App(Application):
         csv_opts_o         = self.options['objectCatalog','csvOptions' ]
         output_path        = self.options['countOutputFile'            ]
         variable_mapping   = self.options['variables'                  ]
-        if extra_bins_r is not None: extra_bins_r = {feature: [float(x) for x in value] for feature, value in extra_bins_r.items()}      
-        if extra_bins_o is not None: extra_bins_o = {feature: [float(x) for x in value] for feature, value in extra_bins_o.items()} 
         data_filters_r     = substitute(data_filters_r, variable_mapping)
         data_filters_o     = substitute(data_filters_o, variable_mapping)
         expressions_r      = substitute(expressions_r , variable_mapping)
@@ -203,7 +202,7 @@ class App(Application):
                            output_path        = output_path,
                            skip_cell_prepartion        = self.args.flag == 1,
                            stop_after_cell_preparation = self.args.flag == 2, 
-                           use_mpi                     = self.args.use_mpi, )        
+                           use_mpi                     = not self.args.no_mpi, )        
         return 
 
 if __name__ == '__main__': App().run()

@@ -1,16 +1,9 @@
 #!/usr/bin/python3
 
 import json, os
-import numpy as np, pandas as pd
+import numpy as np
 from abc import ABC, abstractmethod
-from collections import namedtuple
 from typing import Any
-
-
-# error codes: 
-WARNING = 2 # warnings 
-ERROR   = 1 # error / failure 
-SUCCESS = 0 # success or other flags
 
 EPS = 1e-06 # tolerence to match two floats
 UNIT_DEGREE_IN_RADIAN = 0.017453292519943295 # 1 deg in rad: degree to radian conversion factor
@@ -443,8 +436,6 @@ class Box3D(Box):
 # Storage 
 #############################################################################################################
 
-_HistogramResult = namedtuple( 'HistogramResult', ['bins', 'hist'] )
-
 class CountResult:
     r"""
     An object to store count-in-cells data. This stores the counting set-up such as the region 
@@ -476,7 +467,8 @@ class CountResult:
                  patches: list[Shape], 
                  patch_flags: list[bool],
                  pixsize: float,
-                 patchsize: list[float], ) -> None:
+                 patchsize: list[float], 
+                 **extra_bins: list[float], ) -> None:
         
         self.region  = Box.create( region )
         self.patches = []
@@ -512,9 +504,14 @@ class CountResult:
             raise TypeError( f"all pixsizes must be positive" )
         self.pixsize = np.asfarray( pixsize )
 
+        self.extra_bins = {}
+        for feature, bins in extra_bins.items():
+            if not np.ndim(bins) != 1: raise TypeError("bin edges should be 1d arrays")
+            if np.size(bins) < 3: raise TypeError("bin edges must have at least 3 values")
+            self.extra_bins[feature] = np.asfarray(bins)
+
         self.data  = {}   # dict to store labelled data
         self.shape = None # shape of the data
-        self.extra_bins = {}
 
     def copy(self, include_data: bool = False) -> 'CountResult':
         r"""
@@ -649,123 +646,24 @@ class CountResult:
     
     @property
     def labels(self) -> list[str]: return list( self.data.keys() )
-    
-    def get(self, label: str) -> Any:
+
+    def get(self, label: str, *i: int) -> Any:
         r"""
         Get the data with given label. Return None if not exist.
 
         Parameters
         ----------
         label: str
+        i: int, optional
+            If given tell data along which axis are returned. Last axis is the patch.
 
         Returns
         -------
         res: array_like
 
         """
-
-        return self.data.get( label )
+        data = self.data.get( label )
+        axis = (..., *i)
+        return data if i is None else data[axis]
     
-    def statistics(self, label: str) -> pd.DataFrame:
-        r"""
-        Return the patchwise descriptive statistics of a data. 
-
-        Parameters
-        ----------
-        label: str
-            Name of the data. If not exist, raises a `KeyError`.
-
-        Returns
-        -------
-        stats: pandas.DataFrame
-
-        """
-
-        data = self.get( label )
-        if data is None:
-            raise KeyError( "missing data '%s'" % label )
-        
-        from scipy.stats import describe
-
-        stats = []
-        for i in range( data.shape[-1] ):
-            xi  = data[..., i].flatten() 
-            res = describe( xi )
-            stats.append([res.nobs, 
-                          res.mean, 
-                          res.variance, 
-                          res.skewness, 
-                          res.kurtosis,
-                          *np.percentile( xi, q = [0., 25., 50., 75., 100.] ) ])
-
-        stats = pd.DataFrame(stats, 
-                             columns = ['count', 'mean', 'variance', 'skewness', 'kurtosis',
-                                        'min', '25%', '50%', '75%', 'max'                  ])
-        return stats
-
-    def histogram(self, 
-                  label: str, 
-                  bins: Any = 21, 
-                  xrange: Any = None, 
-                  density: bool = False ) -> _HistogramResult:
-        r"""
-        Return the patchwise histogram of a data.
-
-        Parameters
-        ----------
-        label: str
-            Name of the data to use. If not exist, raise exception.
-        bins: int or 1D array_like
-            Number of bins (int) or bins edges (1D array of floats) to use.
-        xrange: bool, optional
-            Range to use for counting. If not given and bins is a int, range is taken from 
-            data limits.
-        density: bool, optional
-            If set true, normalise the histogram to a probability density function. Default 
-            is false.
-
-        Returns
-        -------
-        res: _HistogramResult
-            A tuple of bin edges and histogram values.
-
-        """
-
-        data = self.get( label )
-        if data is None:
-            raise KeyError( "missing data '%s'" % label )
-        
-        if isinstance(bins, int): # find bin edges with given number of bins
-
-            if xrange is None: # get bounds from the data
-
-                # bounds of the data
-                lower, upper = np.min( data ), np.max( data )
-
-                # a nice value for the width
-                width = getNearestPrettyNumber( upper - lower )
-
-                # a nice bin size
-                binsize = getNearestPrettyNumber( width / bins )
-
-                # nice values for the bounds
-                lower = np.floor( lower / binsize ) * binsize
-                upper = np.ceil( upper / binsize ) * binsize
-
-            else:
-                lower, upper = xrange 
-        
-            bins = np.linspace( lower, upper, bins + 1 )
-
-        if np.ndim( bins ) != 1:
-            raise TypeError("bins must be an int or 1d array")
-        
-        hist = []
-        bins = np.asfarray( bins )
-        for i in range( data.shape[-1] ):
-            hist_i, _ = np.histogram( data[..., i].flatten(), bins = bins, density = density )
-            hist.append( hist_i )
-        hist = np.stack( hist, axis = -1 )
-
-        return _HistogramResult( bins = bins, hist = hist )
-
+    

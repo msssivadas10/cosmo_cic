@@ -25,7 +25,7 @@ objectCatalog:
     filters    : ["g_magnitude < 22.0"] 
     expressions: [] 
     extraBins: # additional bins used for counting
-        g_magnitude: [-inf, 15.0, 20.0, 22.0]
+        g_magnitude: [-.inf, 15.0, 20.0, 22.0]
     csvOptions : 
         chunksize: 10000
         header   : 0
