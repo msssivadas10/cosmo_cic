@@ -6,7 +6,7 @@ from scipy.integrate import simpson
 from scipy.optimize import brentq
 from typing import Any
 from ._helpers import _ModelsTable, _InterpolationTables, _CosmologySettings
-from ..power_spectrum import PowerSpectrum, WindowFunction, builtinWindows
+from ..power_spectrum import PowerSpectrum, builtinWindows
 from ..halos import MassFunction, HaloBias
 from ..utils import randomString
 from ..utils.constants import *
@@ -24,21 +24,8 @@ class Cosmology:
     A Lambda CDM cosmology class.
     """
 
-    __slots__ = ('h', 
-                 'Om0', 
-                 'Ob0', 
-                 'Ode0', 
-                 'Onu0', 
-                 'Ok0', 
-                 'Nnu', 
-                 'ns', 
-                 'sigma8', 
-                 'Tcmb0', 
-                 'name', 
-                 'settings',
-                 '_psnorm', 
-                 '_model',
-                 '_interp' )
+    __slots__ = ('h', 'Om0', 'Ob0', 'Ode0', 'Onu0', 'Ok0', 'Nnu', 'ns', 'sigma8', 'Tcmb0', 
+                 'name', 'settings', '_psnorm', '_model', '_interp' )
     
     def __init__(self, 
                  h: float, 
@@ -55,30 +42,20 @@ class Cosmology:
         #
         # checking and setting model parameters:
         #
-        if h <= 0:
-            raise CosmologyError("hubble parameter must be positive")
-        if Om0 < 0:
-            raise CosmologyError("matter density must be non-negative")
-        if Ob0 < 0:
-            raise CosmologyError("baryon density must be non-negative")
-        if Onu0 < 0:
-            raise CosmologyError("neutrino density must be non-negative")
-        if Nnu <= 0:
-            raise CosmologyError("neutrino number must be positive")
-        if Ob0 + Onu0 > Om0:
-            raise CosmologyError("sum of baryon and neutrino density must be less than matter density")
-        if Ode0 is None:
-            Ode0, Ok0 = 1 - Om0, 0.
-        elif Ode0 < 0:
-            raise CosmologyError("dark energy density must be non-negative")
-        else:
-            Ok0  = 1 - Om0 - Ode0
-        if sigma8 is None:
-            sigma8 = 1.0
-        elif sigma8 < 0.:
-            raise CosmologyError("value of sigma8 parameter must be positive")
-        if Tcmb0 <= 0:
-            return CosmologyError("CMB temperature must be positive")
+        if h     <= 0: raise CosmologyError("hubble parameter must be positive")
+        if Om0    < 0: raise CosmologyError("matter density must be non-negative")
+        if Ob0    < 0: raise CosmologyError("baryon density must be non-negative")
+        if Onu0   < 0: raise CosmologyError("neutrino density must be non-negative")
+        if Nnu   <= 0: raise CosmologyError("neutrino number must be positive")
+        if Tcmb0 <= 0: raise CosmologyError("CMB temperature must be positive")
+        if Ob0 + Onu0 > Om0: raise CosmologyError("sum of baryon and neutrino density must be less than matter density")
+        
+        if Ode0 is None: Ode0, Ok0 = 1 - Om0, 0.
+        elif Ode0 < 0: raise CosmologyError("dark energy density must be non-negative")
+        else: Ok0  = 1 - Om0 - Ode0
+        
+        if sigma8 is not None: 
+            if sigma8 <= 0: raise CosmologyError("value of sigma8 parameter must be positive")
         
         self.h      = h      # hubble parameter in 100 km/sec/Mpc
         self.Om0    = Om0    # total matter (baryon + cdm + neutrino) density
@@ -89,17 +66,14 @@ class Cosmology:
         self.Ok0    = Ok0    # curvature energy density 
         self.ns     = ns     # initial power spectrum index
         self.sigma8 = sigma8 # matter variance smoothed at 8 Mpc/h scale
-        self.Tcmb0  = Tcmb0 # cosmic microwave background (CMB) temperature in K 
-
+        self.Tcmb0  = Tcmb0  # cosmic microwave background (CMB) temperature in K 
 
         # set a name for this cosmology model
         if name is None:
             self.name = '_'.join([ 'Cosmology', randomString(16) ])
         else:
-            if not isinstance(name, str):
-                raise TypeError( "name must be 'str' or None" )
+            if not isinstance(name, str): raise TypeError( "name must be 'str' or None" )
             self.name = name 
-
 
         self._psnorm  = 1. # power spectrum noramlization factor
         self._model   = _ModelsTable()
@@ -123,7 +97,7 @@ class Cosmology:
         
         attrs    = ['name', 'h', 'Om0', 'Ob0', 'Ode0', 'Onu0', 'Nnu', 'ns', 'sigma8', 'Tcmb0']
         data_str = ', '.join( map(lambda __x: f'{__x}={ getattr(self, __x) }', attrs ) )
-        return f"Cosmology(%s)" % data_str
+        return f"Cosmology({data_str})"
     
     def set(self, 
             power_spectrum: str | PowerSpectrum = None, 
@@ -133,12 +107,9 @@ class Cosmology:
         Set model for quantities like power spectrum, mass function etc.
         """
         
-        if power_spectrum is not None: 
-            self._model.power_spectrum = power_spectrum
-        if mass_function is not None:
-            self._model.mass_function = mass_function
-        if halo_bias is not None:
-            self._model.halo_bias = halo_bias
+        if power_spectrum is not None: self._model.power_spectrum = power_spectrum
+        if mass_function is not None: self._model.mass_function = mass_function
+        if halo_bias is not None: self._model.halo_bias = halo_bias
         return
      
     def createInterpolationTables(self) -> None:
@@ -476,12 +447,11 @@ class Cosmology:
         """
         
         self._psnorm = 1.        
-        if reset:
-            return 
+        if reset: return 
         
-        calculatedValue = self.matterVariance( 8.0, exact = not self.settings.useInterpolation )
-        observedValue   = self.sigma8**2
-        self._psnorm    = observedValue / calculatedValue
+        calculated = self.matterVariance( 8.0, exact = not self.settings.useInterpolation, normalize = False )
+        observed   = self.sigma8**2
+        self._psnorm    = observed / calculated
         return 
     
     #
