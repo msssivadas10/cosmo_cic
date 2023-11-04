@@ -1,45 +1,34 @@
-id: 'cic-test-001'
-random_catalog: 
-    path       : "mock_data.csv"
-    csv_options:
-        compression: "infer"
-        chunksize  : 1000
-        delimiter  : ","
-        comment    : "#"
-        header     : 0
-        names      : null              
-    mask       : "%(band)s_mask"
-    x_coord    : "x"
-    y_coord    : "y"                 
-    filters    : [] 
+id             : "test_counting_001"        # name used to identify this counting process
+region         : [[0.0, 0.0], [40.0, 10.0]] # bounding box of the region used
+badRegions     : []                         # regions to exclude from counting
+patchsize      : [10.0] # size of the sub-divisions used for counting. use the region size for no sub-division
+pixsize        : [1.0]  # size of the cells. must be less than patchsizes
+patchOutputFile: "test_patchs1.json" # file to write/read spatial details
+countOutputFile: "test_counts1.json" # file to write counting results
+
+# section specifying random catalog: used to find cell area
+randomCatalog: 
+    path       : "p3catalog.csv" # data file path or name
+    coord      : ["ra", "dec"]   # column names specifying position coordinates
+    masks      : ["g_mask", "r_mask", "i_mask"] # mask column names
+    filters    : [] # expressions to filter dataset
+    expressions: [] # other expressions to evaluate on data, before processing
+    csvOptions : # csv read options are passed as keyword argument to the csv parser (pandas.read_csv)
+        chunksize: 10000 # chunksize to load data as slices
+        header   : 0     # row specifying the column names
+
+# section specifying object catalog: fields same as `randomCatalog` 
+objectCatalog: 
+    path       : "p3catalog.csv"
+    coord      : ["ra", "dec"]
+    masks      : ["g_mask", "r_mask", "i_mask"] 
+    filters    : ["g_magnitude < 22.0"] 
     expressions: [] 
+    extraBins: # additional bins used for counting
+        g_magnitude: [-inf, 15.0, 20.0, 22.0]
+    csvOptions : 
+        chunksize: 10000
+        header   : 0
 
-object_catalog: 
-    path          : "mock_data.csv"
-    csv_options:
-        compression : "infer"
-        chunksize   : 1000
-        delimiter   : ","
-        comment     : "#" 
-        header      : 0
-        names       : null               
-    redshift      : "redshift"                    
-    redshift_error: "redshift_error"         
-    magnitude     : "%(band)s_magnitude"                
-    mag_offset    : "%(band)s_magnitude_offset"        
-    mask          : "%(band)s_mask"      
-    x_coord       : "x"
-    y_coord       : "y"                 
-    filters       : ["redshift < 1."] 
-    expressions   : []
-
-region            : [0.0, 0.0, 1.0, 1.0]
-bad_regions       : []
-patchsize_x       : 0.5
-patchsize_y       : 0.5
-pixsize           : 0.1
-random_masks      : ["u", "v"]
-object_masks      : ["u", "v"]
-all_bands         : ["u", "v"]
-patch_details_path: "patch.json"
-count_results_path: "count.json"
+# variable table. specify substitutes for $-fields used in filters and expressions
+# variables: 
