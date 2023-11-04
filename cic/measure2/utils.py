@@ -469,7 +469,7 @@ class CountResult:
 
     """
 
-    __slots__ = 'region', 'patchsize', 'pixsize', 'patches', 'shape', 'patch_flags', 'data'
+    __slots__ = 'region', 'patchsize', 'pixsize', 'patches', 'shape', 'patch_flags', 'data', 'extra_bins'
 
     def __init__(self, 
                  region: Rectangle, 
@@ -514,8 +514,36 @@ class CountResult:
 
         self.data  = {}   # dict to store labelled data
         self.shape = None # shape of the data
+        self.extra_bins = {}
 
-    def add(self, value: Any, label: str) -> 'CountResult':
+    def copy(self, include_data: bool = False) -> 'CountResult':
+        r"""
+        Return a copy of the results.
+
+        Parameters
+        ----------
+        include_data: bool, optional
+            Tells if to include data and extra bins info to the result (default = False).
+
+        Returns
+        -------
+        res: CountResult
+
+        """
+        res = CountResult(region      = self.region, 
+                          patches     = self.patches,
+                          patch_flags = self.patch_flags, 
+                          pixsize     = self.pixsize, 
+                          patchsize   = self.patchsize, )
+        
+        if include_data:
+            res.shape = self.shape
+            for label, value in self.data.items(): res.data[label] = np.copy(value)
+            for label, value in self.extra_bins.items(): res.extra_bins[label] = np.copy(value)
+
+        return res
+
+    def add(self, value: Any, label: str, replace: bool = False) -> 'CountResult':
         r"""
         Add new data to the result and return the object itself.
 
@@ -525,6 +553,8 @@ class CountResult:
             Data to be added.
         label: str
             Name or label of the data.
+        replace: bool, optional
+            If true, replace the data if exist, else raise an error (default).
 
         Returns
         -------
@@ -533,23 +563,33 @@ class CountResult:
 
         """
         
-        if label in self.data.keys():
+        if label in self.data.keys() and not replace:
             raise ValueError( f"label '{ label }' already exist" )
         
         value = np.asfarray( value )
-        if self.shape is None:
+        if self.shape is None: 
             self.shape = value.shape
-
-        # check if the new data have similar shape 
-        elif value.shape != self.shape:
-            raise TypeError( f"data has incorrect shape. must be { self.shape }" )
+        elif value.shape != self.shape: 
+            raise TypeError( f"data has incorrect shape {value.shape}. must be { self.shape }" )
 
         self.data[ label ] = value
         return self
+    
+    def clear(self) -> None:
+        r"""
+        Remove all data from the object.
+        """
+        self.data.clear()
+        self.shape = None
 
     def save(self, path: str) -> None:
         r"""
         Save the results to a file `path` in a JSON format.
+
+        Parameters
+        ----------
+        path: str
+
         """     
 
         # creating a JSON object...
@@ -565,6 +605,8 @@ class CountResult:
         obj["shape"] = self.shape        
         obj["data"]  = { label: value.tolist() for label, value in self.data.items() }
 
+        obj['extra_bins'] = { label: value.tolist() for label, value in self.extra_bins.items() }
+
         with open( path, 'w' ) as file:
             json.dump(obj, file, indent = 4)
 
@@ -574,6 +616,11 @@ class CountResult:
     def load(cls, path: str) -> 'CountResult':
         r"""
         Load a saved result from a JSON file `path`.
+
+        Parameters
+        ----------
+        path: str
+        
         """
 
         if not os.path.exists( path ):
@@ -589,10 +636,14 @@ class CountResult:
                           pixsize     = obj['pixsize'],
                           patchsize   = obj['patchsize'], )
         
-        res.shape = tuple( obj['shape'] )
+        if obj['shape'] is not None: res.shape = tuple( obj['shape'] )
 
         for label, values in obj['data'].items():
-            res.data[label] = np.reshape( values, res.shape )
+            if res.shape is not None: values = np.reshape( values, res.shape )
+            res.data[label] = values
+
+        for label, values in obj['extra_bins'].items():
+            res.extra_bins[label] = np.asfarray(values)
 
         return res
     
