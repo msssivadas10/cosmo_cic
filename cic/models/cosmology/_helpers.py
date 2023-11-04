@@ -76,7 +76,6 @@ class _InterpolationTables:
                           lnzbp1: float,
                           zpts: int, 
                           **kwargs,    ) -> None:
-        
         self._lnDistance = Interpolator1D(func, xa = lnzap1, xb = lnzbp1, xpts = zpts, fkwargs = kwargs)
         return
 
@@ -86,7 +85,6 @@ class _InterpolationTables:
                        lnzbp1: float,
                        zpts: int, 
                        **kwargs,    ) -> None:
-        
         self._lnDplus = Interpolator1D(func, xa = lnzap1, xb = lnzbp1, xpts = zpts, fkwargs = kwargs)
         return
 
@@ -99,7 +97,6 @@ class _InterpolationTables:
                                lnzbp1: float, 
                                zpts: int, 
                                **kwargs,    ) -> None:
-        
         self._lnPowerSpectrum = Interpolator2D(func, 
                                                xa = lnka,   xb = lnkb,   xpts = kpts,
                                                ya = lnzap1, yb = lnzbp1, ypts = zpts, 
@@ -115,7 +112,6 @@ class _InterpolationTables:
                           lnzbp1: float, 
                           zpts: int, 
                           **kwargs,    ) -> None:
-        
         self._lnVariance = Interpolator2D(func, 
                                           xa = lnra,   xb = lnrb,   xpts = rpts,
                                           ya = lnzap1, yb = lnzbp1, ypts = zpts, 
@@ -140,12 +136,10 @@ class _ModelsTable:
 
     @power_spectrum.setter
     def power_spectrum(self, value: Any):
-        
         if isinstance( value, str ):
             if value not in cps.builtinPowerSpectrums:
                 raise ValueError(f"power spectrum model '{value}' is not available")
             value = cps.builtinPowerSpectrums.get( value )
-
         if not isinstance( value, cps.PowerSpectrum ):
             raise TypeError(f"cannot use a '{typestr(value)}' object as power spectrum model")
         self._power_spectrum = value
@@ -153,12 +147,10 @@ class _ModelsTable:
 
     @mass_function.setter
     def mass_function(self, value: Any):
-
         if isinstance( value, str ):
             if value not in cmf.builtinMassfunctions:
                 raise ValueError(f"mass function model '{value}' is not available")
             value = cmf.builtinMassfunctions.get( value ) 
-
         if not isinstance( value, cmf.MassFunction ):
             raise TypeError(f"cannot use a '{typestr(value)}' object as mass function model")
         self._mass_function = value
@@ -166,12 +158,10 @@ class _ModelsTable:
 
     @halo_bias.setter
     def halo_bias(self, value: Any):
-
         if isinstance( value, str ):
             if value not in cbf.builtinLinearBiases:
                 raise ValueError(f"halo bias model '{value}' is not available")
             value = cbf.builtinLinearBiases.get( value ) 
-
         if not isinstance( value, cbf.HaloBias ):
             raise TypeError(f"cannot use a '{typestr(value)}' object as halo bias model")
         self._halo_bias = value
