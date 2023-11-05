@@ -13,7 +13,7 @@ randomCatalog:
     masks      : ["g_mask", "r_mask", "i_mask"] # mask column names
     filters    : [] # expressions to filter dataset
     expressions: [] # other expressions to evaluate on data, before processing
-    csvOptions : # csv read options are passed as keyword argument to the csv parser (pandas.read_csv)
+    csvOptions :    # csv read options are passed as keyword argument to the csv parser (pandas.read_csv)
         chunksize: 10000 # chunksize to load data as slices
         header   : 0     # row specifying the column names
 
@@ -22,7 +22,7 @@ objectCatalog:
     path       : "p3catalog.csv"
     coord      : ["ra", "dec"]
     masks      : ["g_mask", "r_mask", "i_mask"] 
-    filters    : ["g_magnitude < 22.0"] 
+    filters    : ["$g < 22.0"] 
     expressions: [] 
     extraBins: # additional bins used for counting
         g_magnitude: [-.inf, 15.0, 20.0, 22.0]
@@ -31,4 +31,5 @@ objectCatalog:
         header   : 0
 
 # variable table. specify substitutes for $-fields used in filters and expressions
-# variables: 
+variables: 
+    g: "g_magnitude"

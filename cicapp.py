@@ -7,7 +7,7 @@ r"""
 `cicapp.py` can be used to measure count-in-cells in a general N-dimensional recatangular box 
 region, with rectangular or cubic cells. 
 
-Usage: ./cicapp.py [-h] [--flag FLAG] [--logs LOGS] [--no-mpi] opts
+Usage: ./cicapp.py [-h] [--flag FLAG] [--logs LOGS] [--no-mpi] file
 
 Input options for counting are specified in the options file opts, in YAML or JSON format. 
 Valid parameters are (NOTE: examples are in JSON format): 
@@ -52,23 +52,26 @@ Disable parellel processing by using --no-mpi flag.
 
 """
 
-import os, re
+import os
+import re
+import logging
+import yaml
 from random import choice
 from string import Template
-from cic.misc.appbuilder import Application
+from argparse import ArgumentParser
+from typing import Any 
 from cic.measure2.counting import cicRectangularCell, _get_parellel_process_info
 
-
-def random_string(__len: int) -> str:
+def randstr(__length: int) -> str:
     r"""
     Generate a random string of given length.
     """
     __chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    return ''.join([choice(__chars) for _ in range(__len)])
+    return ''.join([choice(__chars) for _ in range(__length)])
 
 def substitute(__expressions: list[str], __vartable: dict[str, str]) -> list[str]:
     r"""
-    Do a variable substitution on a list of expressions using a variable table.
+    Do a varaiable substitution on the given expressions using a variable table. 
     """
     if __expressions is None or __vartable is None: return __expressions
     __expressions = list(__expressions)
@@ -80,129 +83,159 @@ def substitute(__expressions: list[str], __vartable: dict[str, str]) -> list[str
         __expressions[i] = Template(__str).substitute(__vartable)
     return __expressions
 
-class App(Application):
+def rget(__name: str, __dict: dict, __default: Any = None) -> Any:
     r"""
-    A simple app to for count-in-cells in an n-dimensional space, with rectangular cells.
+    Recursively get a node value from a dict tree.
     """
-    
-    def __init__(self) -> None:
-        super().__init__(name = 'cicapp.py', description = self.__doc__)
+    if not isinstance(__name, str ): raise TypeError("argument __name must be a str" )
+    if __dict is None: return __default
+    if not isinstance(__dict, dict): raise TypeError(f"argument __dict must be a dict")
+    __name  = __name.split('.', maxsplit = 1)
+    if len(__name) == 1: __name, __ext = __name[0], None 
+    else: __name, __ext = __name
+    if __ext is None: return __dict.get(__name, __default)
+    __next_dict = __dict.get(__name)
+    return rget(__ext, __next_dict, __default)
 
-    def create_argslist(self) -> None:
-        self.add_argument('opts'    , help = 'path to the input options file'    , type   = str         ,               )
-        self.add_argument('--flag'  , help = 'flags to control the execution'    , type   = int         , default  = 0  )
-        self.add_argument('--logs'  , help = 'path to create the log files'      , type   = str         , default  = '.')
-        self.add_argument('--no-mpi', help = 'disable multiprocessing using mpi' , action = 'store_true',               )
+def rcopy(__src: dict, __dest: dict) -> None:
+    r"""
+    Recursively copy values from source dict tree to destination tree.
+    """
+    if not isinstance(__src , dict): raise TypeError("__src must be a dict" )
+    if not isinstance(__dest, dict): raise TypeError("__dest must be a dict")
+    for __key, __src_value in __src.items():
+        if __key not in __dest: continue
+        __dest_value = __dest[__key]
+        if isinstance(__dest_value, dict): rcopy(__src_value, __dest_value)
+        else: __dest[__key] = __src_value
+    return
 
-    def create_options(self) -> None:
-        self.add_option('id'                        , help = 'id for the counting job'                  , cls = 'str',                                                    )
-        self.add_option("region"                    , help = "region to do counting"                    , cls = 'num',                  ndim = 2, shape = (2, None)       )
-        self.add_option("badRegions"                , help = "list of regions to exclude"               , cls = 'num', optional = True, ndim = 3, shape = (None, 2, None) )
-        self.add_option("patchsize"                 , help = "size of a patch"                          , cls = 'num',                  ndim = 1,                         )
-        self.add_option("pixsize"                   , help = "size of a cell"                           , cls = 'num',                  ndim = 1,                         )
-        self.add_option("patchOutputFile"           , help = "path to the file containing patch details", cls = 'str',                  ndim = 0,                         )
-        self.add_option("countOutputFile"           , help = "path to the file containing count details", cls = 'str',                  ndim = 0,                         )
-        self.add_option("variables"                 , help = "variable mapping"                         , cls = 'any', optional = True,                                   )
-        self.add_option("randomCatalog"             , help = "specifications for random object catalog" , cls = 'blk',                                                    )
-        self.add_option("objectCatalog"             , help = "specifications for object catalog"        , cls = 'blk',                                                    )
-        self.add_option("randomCatalog.path"        , help = "path to the random catalog file"          , cls = 'str',                            isfile = True           )
-        self.add_option("randomCatalog.coord"       , help = "names of the coordinate features"         , cls = 'str',                  ndim = 1,                         )
-        self.add_option("randomCatalog.masks"       , help = "names for mask features"                  , cls = 'str', optional = True, ndim = 1                          )
-        self.add_option("randomCatalog.filters"     , help = "data filtering expressions"               , cls = 'str', optional = True, ndim = 1                          )
-        self.add_option("randomCatalog.expressions" , help = "other expressions to evaluate on data"    , cls = 'str', optional = True, ndim = 1                          )
-        self.add_option("randomCatalog.extraBins"   , help = "Additional bins to use"                   , cls = 'any', optional = True,                                   )
-        self.add_option("randomCatalog.csvOptions"  , help = "additional csv file options"              , cls = 'any', optional = True,                                   )
-        self.add_option("objectCatalog.path"        , help = "path to the random catalog file"          , cls = 'str',                            isfile = True           )
-        self.add_option("objectCatalog.coord"       , help = "names of the coordinate features"         , cls = 'str',                  ndim = 1,                         )
-        self.add_option("objectCatalog.masks"       , help = "names for mask features"                  , cls = 'str', optional = True, ndim = 1                          )
-        self.add_option("objectCatalog.filters"     , help = "data filtering expressions"               , cls = 'str', optional = True, ndim = 1                          )
-        self.add_option("objectCatalog.expressions" , help = "other expressions to evaluate on data"    , cls = 'str', optional = True, ndim = 1                          )
-        self.add_option("objectCatalog.extraBins"   , help = "Additional bins to use"                   , cls = 'any', optional = True,                                   )
-        self.add_option("objectCatalog.csvOptions"  , help = "additional csv file options"              , cls = 'any', optional = True,                                   )
-        return
-    
-    def run(self) -> None:
-        self.parse_args() 
-        if not self.args.opts: self.exit("no input files are given, exiting :)")
+def load_options(file: str, opts: dict) -> None:
+    r"""
+    Load options in a file to a dict tree.
+    """
+    if not isinstance(file, str ): raise TypeError("argument file must be a str" )
+    if not isinstance(opts, dict): raise TypeError("argument opts must be a dict")
+    with open(file, 'r') as fp: return rcopy(yaml.safe_load(fp), opts)
 
-        # loading options:
-        self.load_options(self.args.opts)   
+def create_argument_parser() -> ArgumentParser:
+    ap = ArgumentParser(prog         = "cicapp.py", 
+                        description  = "A simple app to for count-in-cells in an n-dimensional space, with rectangular cells.")
+    ap.add_argument('file'    , help = 'path to the input options file'    , type   = str         ,               )
+    ap.add_argument('--flag'  , help = 'flags to control the execution'    , type   = int         , default  = 0  )
+    ap.add_argument('--logs'  , help = 'path to create the log files'      , type   = str         , default  = '.')
+    ap.add_argument('--no-mpi', help = 'disable multiprocessing using mpi' , action = 'store_true',               )
+    return ap
 
-        # save loaded options to a file:
-        __id = self.options['id']
-        if __id is None: __id = random_string(16)
-        task_rootdir = os.path.join(os.path.abspath(self.args.logs), __id)
-        if not os.path.exists(task_rootdir): os.makedirs(task_rootdir)
-        with open(os.path.join(task_rootdir, 'used_options'), 'w') as fp: self.options.print(buffer = fp)
+def configure_logging(file: str, mode: str = 'a') -> None:
+    if not isinstance(file, str ): raise TypeError("argument file must be a str" )
+    if not os.path.exists(file): open(file, 'w').close() # NOTE: hack!
+    logging.basicConfig(level    = logging.INFO, 
+                        format   = "%(asctime)s [%(levelname)s] %(message)s", 
+                        handlers = [logging.FileHandler(filename = file, mode = mode), logging.StreamHandler()])
+    return
 
-        # configure logging:
-        rank    = _get_parellel_process_info(not self.args.no_mpi).rank
-        logpath = os.path.join(task_rootdir, 'logs')
-        if not os.path.exists(logpath): os.makedirs(logpath)
-        logpath = os.path.join(logpath, "%d.log" % rank )
-        if not os.path.exists(logpath): open(logpath, 'a').close() # NOTE: hack!
-        self.basic_logconfig(file = logpath, mode = 'w')
+def __count_in_cells(opts: dict, flag: int, no_mpi: bool) -> None:
+    region             = rget('region'                   , opts)
+    patchsize          = rget('patchsize'                , opts)
+    pixsize            = rget('pixsize'                  , opts)
+    bad_regions        = rget('badRegions'               , opts)
+    patch_details_path = rget('patchOutputFile'          , opts)
+    path_r             = rget('randomCatalog.path'       , opts)
+    use_masks_r        = rget('randomCatalog.masks'      , opts)
+    data_filters_r     = rget('randomCatalog.filters'    , opts)
+    expressions_r      = rget('randomCatalog.expressions', opts)
+    extra_bins_r       = rget('randomCatalog.extraBins'  , opts)
+    coord_r            = rget('randomCatalog.coord'      , opts)
+    csv_opts_r         = rget('randomCatalog.csvOptions' , opts)
+    path_o             = rget('objectCatalog.path'       , opts)
+    use_masks_o        = rget('objectCatalog.masks'      , opts)
+    data_filters_o     = rget('objectCatalog.filters'    , opts)
+    expressions_o      = rget('objectCatalog.expressions', opts)
+    extra_bins_o       = rget('objectCatalog.extraBins'  , opts)
+    coord_o            = rget('objectCatalog.coord'      , opts)
+    csv_opts_o         = rget('objectCatalog.csvOptions' , opts)
+    output_path        = rget('countOutputFile'          , opts)
+    variable_mapping   = rget('variables'                , opts)
+    data_filters_r     = substitute(data_filters_r, variable_mapping)
+    data_filters_o     = substitute(data_filters_o, variable_mapping)
+    expressions_r      = substitute(expressions_r , variable_mapping)
+    expressions_o      = substitute(expressions_o , variable_mapping)
+    cicRectangularCell(region             = region,
+                        patchsize          = patchsize,
+                        pixsize            = pixsize,
+                        bad_regions        = bad_regions,
+                        patch_details_path = patch_details_path,
+                        path_r             = path_r,
+                        use_masks_r        = use_masks_r,
+                        data_filters_r     = data_filters_r,
+                        expressions_r      = expressions_r,
+                        extra_bins_r       = extra_bins_r,
+                        coord_r            = coord_r,
+                        csv_opts_r         = csv_opts_r,
+                        path_o             = path_o,
+                        use_masks_o        = use_masks_o,
+                        data_filters_o     = data_filters_o,
+                        expressions_o      = expressions_o,
+                        extra_bins_o       = extra_bins_o,
+                        coord_o            = coord_o,
+                        csv_opts_o         = csv_opts_o,
+                        output_path        = output_path,
+                        skip_cell_prepartion        = flag == 1,
+                        stop_after_cell_preparation = flag == 2, 
+                        use_mpi                     = not no_mpi, )        
+    return 
 
-        # counting: 
-        try: 
-            self.log_info("starting counting mission '%s'" % __id)
-            self._do_counting()
-            self.log_info("counting mission '%s' completed successfully! :)" % __id)
-        except Exception as _e: self.log_info("counting mission '%s' failed with exception %s :(" % (__id, _e))
-        return
+def main() -> None:
+    args = create_argument_parser().parse_args() # command line arguments namespace
 
-    def _do_counting(self) -> None:
-        r"""
-        Do count in cells with loaded options.
-        """
-        region             = self.options['region'                     ]
-        patchsize          = self.options['patchsize'                  ]
-        pixsize            = self.options['pixsize'                    ]
-        bad_regions        = self.options['badRegions'                 ]
-        patch_details_path = self.options['patchOutputFile'            ]
-        path_r             = self.options['randomCatalog','path'       ]
-        use_masks_r        = self.options['randomCatalog','masks'      ]
-        data_filters_r     = self.options['randomCatalog','filters'    ]
-        expressions_r      = self.options['randomCatalog','expressions']
-        extra_bins_r       = self.options['randomCatalog','extraBins'  ]
-        coord_r            = self.options['randomCatalog','coord'      ]
-        csv_opts_r         = self.options['randomCatalog','csvOptions' ]
-        path_o             = self.options['objectCatalog','path'       ]
-        use_masks_o        = self.options['objectCatalog','masks'      ]
-        data_filters_o     = self.options['objectCatalog','filters'    ]
-        expressions_o      = self.options['objectCatalog','expressions']
-        extra_bins_o       = self.options['objectCatalog','extraBins'  ]
-        coord_o            = self.options['objectCatalog','coord'      ]
-        csv_opts_o         = self.options['objectCatalog','csvOptions' ]
-        output_path        = self.options['countOutputFile'            ]
-        variable_mapping   = self.options['variables'                  ]
-        data_filters_r     = substitute(data_filters_r, variable_mapping)
-        data_filters_o     = substitute(data_filters_o, variable_mapping)
-        expressions_r      = substitute(expressions_r , variable_mapping)
-        expressions_o      = substitute(expressions_o , variable_mapping)
-        cicRectangularCell(region             = region,
-                           patchsize          = patchsize,
-                           pixsize            = pixsize,
-                           bad_regions        = bad_regions,
-                           patch_details_path = patch_details_path,
-                           path_r             = path_r,
-                           use_masks_r        = use_masks_r,
-                           data_filters_r     = data_filters_r,
-                           expressions_r      = expressions_r,
-                           extra_bins_r       = extra_bins_r,
-                           coord_r            = coord_r,
-                           csv_opts_r         = csv_opts_r,
-                           path_o             = path_o,
-                           use_masks_o        = use_masks_o,
-                           data_filters_o     = data_filters_o,
-                           expressions_o      = expressions_o,
-                           extra_bins_o       = extra_bins_o,
-                           coord_o            = coord_o,
-                           csv_opts_o         = csv_opts_o,
-                           output_path        = output_path,
-                           skip_cell_prepartion        = self.args.flag == 1,
-                           stop_after_cell_preparation = self.args.flag == 2, 
-                           use_mpi                     = not self.args.no_mpi, )        
-        return 
+    # loading options:
+    opts = dict(region          = None,
+                patchsize       = None,
+                pixsize         = None,
+                badRegions      = None,
+                patchOutputFile = None,
+                randomCatalog   = dict(path        = None, 
+                                       masks       = None, 
+                                       filters     = None, 
+                                       expressions = None, 
+                                       extraBins   = None, 
+                                       coord       = None, 
+                                       csvOptions  = None, ),
+                objectCatalog   = dict(path        = None, 
+                                       masks       = None, 
+                                       filters     = None, 
+                                       expressions = None, 
+                                       extraBins   = None, 
+                                       coord       = None, 
+                                       csvOptions  = None, ),
+                countOutputFile = None,
+                variables       = None,
+                id              = None, )
+    load_options(args.file, opts)
 
-if __name__ == '__main__': App().run()
+    # save loaded options to a file:
+    __id = rget('id', opts)
+    if __id is None: __id = randstr(16)
+    task_rootdir = os.path.join(os.path.abspath(args.logs), __id)
+    if not os.path.exists(task_rootdir): os.makedirs(task_rootdir)
+    with open(os.path.join(task_rootdir, 'used_options'), 'w') as fp: yaml.safe_dump(opts, fp)
+
+    # configure logging:
+    rank    = _get_parellel_process_info(not args.no_mpi).rank
+    logpath = os.path.join(task_rootdir, 'logs')
+    if not os.path.exists(logpath): os.makedirs(logpath)
+    logpath = os.path.join(logpath, "%d.log" % rank )
+    configure_logging(logpath, mode = 'w')
+
+    # counting: 
+    try: 
+        logging.info("starting counting mission '%s'" % __id)
+        __count_in_cells(opts, args.flag, args.no_mpi)
+        logging.info("counting mission '%s' completed successfully! :)" % __id)
+    except Exception as _e: logging.error("counting mission '%s' failed with exception %s :(" % (__id, _e))
+    return
+
+
+if __name__ == '__main__': main()
+
