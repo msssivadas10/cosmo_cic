@@ -1,3 +1,3 @@
 #!/usr/bin/python3
 
-__all__ = ['generate_p3', 'appbuilder']
+__all__ = ['generate_p3']
