@@ -41,14 +41,14 @@ Field             Description                                                 No
 `extraBins`       Extra bins used for counting, as key-value pairs            e.g., `{"z": [-1.0, 0.0, 1.0, 2.0]}`                      
 ================= =========================================================== ====================================
 
-Counting process can be controlled be FLAG:
+Counting process can be controlled be additional `--flags`:
 
 - `1`: skip the cell preparation step, assuming the spatial details are already in `patchOutputFile`.
 - `2`: stop after cell preparation step.
 
-LOGS specify the location to which runtime files are saved.
+`--logs` specify the location to which runtime files are saved.
 
-Disable parellel processing by using --no-mpi flag.
+Disable parellel processing by using `--no-mpi` flag.
 
 """
 
