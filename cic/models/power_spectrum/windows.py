@@ -1,5 +1,15 @@
 #!/usr/bin/python3
 
+
+r"""
+
+Some pre-defined smoothing window functions. Available models are 
+
+- `tophat` - spherical top-hat window. 
+- `gaussian` - gaussian window
+
+"""
+
 import numpy as np
 from scipy.integrate import simpson
 from abc import ABC, abstractmethod

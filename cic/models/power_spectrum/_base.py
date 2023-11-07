@@ -9,15 +9,28 @@ from ..utils.constants import ONE_OVER_FOUR_PI2
 
 class WindowFunction(ABC):
     r"""
-    Base class representing a smoothing window function.
+    Base class representing a smoothing window function. These represesnt filters used to smooth the density 
+    fluctuations and as kernal in convolving power spectrum in the matter variance calculations.   
     """
 
     @abstractmethod
     def f(self, x: Any, nu: int = 0) -> Any:
+        r"""
+        Returns the value of the window function in fourier space or its first two derivaties (`nu = 1, 2`).
+
+        Parameters
+        ----------
+        x: array_like
+        nu: int, default = 0
+
+        Returns
+        -------
+        res: array_like 
+
+        """
         ...
 
-    def __call__(self, x: Any, nu: int = 0) -> Any:
-        return self.f(x, nu)
+    __call__ = f
     
     def convolve(self, 
                  func: Callable,
@@ -26,11 +39,34 @@ class WindowFunction(ABC):
                  ka: float = 1e-08,
                  kb: float = 1e+08,
                  pts: int = 10001, 
-                 grid: bool = False,   
                  *args, 
                  **kwargs,         ) -> Any:
         r"""
-        Return the value of colvolution of given function with window.
+        Returns the value of colvolution of given function `func` with window.
+
+        .. math:
+
+            f(r) := \int {\rm d}k f(k) \vert w(kr) \vert^2
+
+        Parameters
+        ----------
+        func: callable
+            The argument should be log of the actual function argument.
+        lnr: array_like
+        nu: int, default = 0
+            Order of the log derivative. Allowed values are 0, 1, and 2.
+        ka, kb: float, optional
+            Integration limit. Default is 1e-8 and 1e+8 respectively.
+        pts: int, default = 10001
+            Number of points used for a simpson rule integration.
+        *args, **kwargs: Any
+            Other arguments and keywords are passed to the function.
+
+        Returns
+        -------
+        res: array_like
+            Log of the convolution value.
+
         """
 
         lnr = np.asfarray( lnr )
@@ -70,7 +106,8 @@ class WindowFunction(ABC):
 
 class PowerSpectrum(ABC):
     r"""
-    Base class representing a matter power spectrum object.
+    Base class representing a power spectrum object. These, combined with a cosmology model object are used 
+    to calculate the values of matter power spectrum, variance, correlation etc.
     """
 
     @abstractmethod
@@ -79,7 +116,18 @@ class PowerSpectrum(ABC):
             lnk: Any, 
             lnzp1: Any,  ) -> Any:
         r"""
-        Calculate the log of linear transfer function.
+        Returns the log of linear transfer function :math:`T(k, z)`, based on the given cosmology model.
+
+        Parameters
+        ----------
+        model: Cosmology
+        lnk: array_like
+        lnzp1: array_like
+
+        Returns
+        -------
+        lnt: array_like
+
         """
         ...
 
@@ -90,7 +138,22 @@ class PowerSpectrum(ABC):
                  der: bool = False, 
                  grid: bool = False ) -> Any:
         r"""
-        Calculate the log of linear matter power spectrum.
+        Returns the log of matter power spectrum :math:`P(k, z)`, based on the given cosmology model.
+
+        Parameters
+        ----------
+        model: Cosmology
+        lnk: array_like
+        lnzp1: array_like
+        der: bool, default = False
+            If set to true, returns the log derivative.
+        grid: bool, default = False
+            If set true, evaluate the function on a grid of input arrays. Otherwise, they must be broadcastable.
+
+        Returns
+        -------
+        lnp: array_like
+
         """
         
         # flatten any multi-dimensional arrays, if given
@@ -136,14 +199,35 @@ class PowerSpectrum(ABC):
                        model: object, 
                        lnr: Any, 
                        lnzp1: Any, 
+                       window: WindowFunction,
                        nu: int = 0, 
-                       window: WindowFunction = None,
                        ka: float = 1e-08,
                        kb: float = 1e+08,
                        pts: int = 10001, 
                        grid: bool = False,   ) -> Any:
         r"""
-        Calculate the linear matter variance or its first two derivatives.
+        Returns the log of matter variance (`nu = 0`) or its first two log derivatives (`nu = 1, 2`).
+
+        Parameters
+        ----------
+        model: Cosmology
+        lnr: array_like
+        lnzp1: array_like
+        window: WindowFunction
+            Smoothing window to use.
+        nu: int, default = 0
+            Order of the log derivative. Allowed values are 0, 1, and 2.
+        ka, kb: float, optional
+            Integration limit. Default is 1e-8 and 1e+8 respectively.
+        pts: int, default = 10001
+            Number of points used for a simpson rule integration.
+        grid: bool, default = False
+            If set true, evaluate the function on a grid of input arrays. Otherwise, they must be broadcastable.
+
+        Returns
+        -------
+        res: array_like
+
         """
 
         # dimensionless power spectrum k^3 * P(k)
@@ -167,12 +251,34 @@ class PowerSpectrum(ABC):
 
     def matterCorrelation(self, 
                           model: object, 
-                          r: Any, 
-                          z: Any, 
-                          exact: bool = True, 
-                          integral_pts: int = 10001, ) -> Any:
+                          lnr: Any, 
+                          lnzp1: Any, 
+                          nu: int = 0, 
+                          ka: float = 1e-08,
+                          kb: float = 1e+08,
+                          pts: int = 10001, 
+                          grid: bool = False,   ) -> Any:
         r"""
-        Calculate the linear matter correlation function.
+        Returns the matter correlation function.
+
+        Parameters
+        ----------
+        model: Cosmology
+        lnr: array_like
+        lnzp1: array_like
+        nu: int, default = 0
+            Order of the log derivative. Allowed values are 0, 1, and 2.
+        ka, kb: float, optional
+            Integration limit. Default is 1e-8 and 1e+8 respectively.
+        pts: int, default = 10001
+            Number of points used for a simpson rule integration.
+        grid: bool, default = False
+            If set true, evaluate the function on a grid of input arrays. Otherwise, they must be broadcastable.
+
+        Returns
+        -------
+        res: array_like
+
         """
         raise NotImplementedError()
     

@@ -1,5 +1,15 @@
 #!/usr/bin/python3
 
+r"""
+
+Some pre-defined linear power spectrum models. Available models are 
+
+- `powerlaw`, a basic power law of the form :math:`P(k) = k^{n_s}`
+- `eisenstein98_zeroBaryon` - Eisenstein & Hu (1998) model without baryon oscillations
+- `eisenstein98_withNeutrino` - Eisenstein & Hu (1998) model including massive neutrinos
+
+"""
+
 import numpy as np
 from typing import Any
 from ._base import PowerSpectrum
