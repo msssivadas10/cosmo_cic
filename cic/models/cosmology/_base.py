@@ -6,7 +6,7 @@ from scipy.integrate import simpson
 from scipy.optimize import brentq
 from typing import Any
 from ._helpers import _ModelsTable, _InterpolationTables, _CosmologySettings
-from ..power_spectrum import PowerSpectrum, builtinWindows
+from ..power_spectrum import PowerSpectrum
 from ..halos import MassFunction, HaloBias
 from ..utils import randomString
 from ..utils.constants import *
@@ -709,17 +709,11 @@ class Cosmology:
         #
         # exact calculations
         #
-
-        win = self.settings.smoothWindow
-        if isinstance( win, str ):
-            if win not in builtinWindows:
-                raise ValueError("window function '%s' is not available" % win)
-            win = builtinWindows[win]
         
         res = self._model.power_spectrum.matterVariance(self, 
                                                         lnr, 
                                                         lnzp1, 
-                                                        window = win, 
+                                                        window = self.settings.get_window(), 
                                                         nu     = nu, 
                                                         ka     = self.settings.kZero,
                                                         kb     = self.settings.kInfinity,

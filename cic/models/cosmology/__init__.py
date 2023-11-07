@@ -32,6 +32,7 @@ And, use for any calculations!
 """
 
 from ._base import Cosmology, CosmologyError
-from .models import *
+from .models import available_models as builtin_cosmologies
+from .models import plank18, plank15, wmap08, millanium
 
 

@@ -50,6 +50,16 @@ class _CosmologySettings:
     rZero: float         = 1e-04    # zero value for r
     rInfinity: float     = 1e+04    # infinite value for r
 
+    def get_window(self) -> None:
+        win = self.smoothWindow
+        if isinstance( win, str ):
+            if win not in cps.builtin_windows: 
+                raise ValueError("window function '%s' is not available" % win)
+            win = cps.builtin_windows[win]
+        if not isinstance( win, cps.WindowFunction ): 
+            raise TypeError("window function must be an instance of 'WindowFunction'")
+        return win
+
 
 @dataclass
 class _InterpolationTables:
@@ -137,9 +147,9 @@ class _ModelsTable:
     @power_spectrum.setter
     def power_spectrum(self, value: Any):
         if isinstance( value, str ):
-            if value not in cps.builtinPowerSpectrums:
+            if value not in cps.builtin_power_spectrums:
                 raise ValueError(f"power spectrum model '{value}' is not available")
-            value = cps.builtinPowerSpectrums.get( value )
+            value = cps.builtin_power_spectrums.get( value )
         if not isinstance( value, cps.PowerSpectrum ):
             raise TypeError(f"cannot use a '{typestr(value)}' object as power spectrum model")
         self._power_spectrum = value
@@ -148,9 +158,9 @@ class _ModelsTable:
     @mass_function.setter
     def mass_function(self, value: Any):
         if isinstance( value, str ):
-            if value not in cmf.builtinMassfunctions:
+            if value not in cmf.builtin_massfunctions:
                 raise ValueError(f"mass function model '{value}' is not available")
-            value = cmf.builtinMassfunctions.get( value ) 
+            value = cmf.builtin_massfunctions.get( value ) 
         if not isinstance( value, cmf.MassFunction ):
             raise TypeError(f"cannot use a '{typestr(value)}' object as mass function model")
         self._mass_function = value
@@ -159,9 +169,9 @@ class _ModelsTable:
     @halo_bias.setter
     def halo_bias(self, value: Any):
         if isinstance( value, str ):
-            if value not in cbf.builtinLinearBiases:
+            if value not in cbf.builtin_linear_biases:
                 raise ValueError(f"halo bias model '{value}' is not available")
-            value = cbf.builtinLinearBiases.get( value ) 
+            value = cbf.builtin_linear_biases.get( value ) 
         if not isinstance( value, cbf.HaloBias ):
             raise TypeError(f"cannot use a '{typestr(value)}' object as halo bias model")
         self._halo_bias = value

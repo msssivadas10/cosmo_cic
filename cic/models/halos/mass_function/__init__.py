@@ -13,9 +13,10 @@ Available models are
 - `sheth01` - Sheth et al (2001), based on ellipsoidal collapse
 - `tinker08` - a redshift dependent model by Tinker et al (2008)
 
-and `builtinMassfunctions` is a dict of built-in models
+and `builtin_massfunctions` is a dict of built-in models
 
 """
 
 from ._base import MassFunction
-from .models import *
+from .models import available_models as builtin_massfunctions
+from .models import press74, sheth01, tinker08

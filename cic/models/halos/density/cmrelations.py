@@ -10,7 +10,7 @@ import numpy as np
 from typing import Any
 from ._base import CMRelation
 
-builtinCMRelations = {}
+available_models = {}
 
 class Bullock01(CMRelation):
     r"""
@@ -45,7 +45,7 @@ class Bullock01(CMRelation):
         return K * (1 + zc) / (1 + z)
     
 bullock01 = Bullock01()
-builtinCMRelations['bullock01'] = bullock01
+available_models['bullock01'] = bullock01
     
 
 class Zheng07(CMRelation):
@@ -79,4 +79,4 @@ class Zheng07(CMRelation):
         return c
 
 zheng07 = Zheng07()
-builtinCMRelations['zheng07'] = zheng07
+available_models['zheng07'] = zheng07

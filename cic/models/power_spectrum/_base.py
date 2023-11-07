@@ -28,10 +28,23 @@ class WindowFunction(ABC):
         res: array_like 
 
         """
-        ...
 
-    __call__ = f
-    
+    def __call__(self, x: Any, nu: int = 0) -> Any:
+        r"""
+        Returns the value of the window function in fourier space or its first two derivaties (`nu = 1, 2`).
+
+        Parameters
+        ----------
+        x: array_like
+        nu: int, default = 0
+
+        Returns
+        -------
+        res: array_like 
+
+        """
+        return self.f(x, nu)
+
     def convolve(self, 
                  func: Callable,
                  lnr: Any, 
@@ -246,7 +259,7 @@ class PowerSpectrum(ABC):
         if not isinstance(window, WindowFunction):
             raise TypeError("window must be a 'WindowFunction' instance")
 
-        res = window.convolve(func, lnr, nu, ka, kb, pts, grid, lnzp1, model)
+        res = window.convolve(func, lnr, nu, ka, kb, pts, lnzp1, model)
         return res if nu else res + np.log( ONE_OVER_FOUR_PI2 )
 
     def matterCorrelation(self, 

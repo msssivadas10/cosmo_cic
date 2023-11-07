@@ -18,7 +18,7 @@ from ._base import WindowFunction
 
 
 # Pre-defined models 
-builtinWindows = {}
+available_models = {}
 
 class SphericalTophat(WindowFunction):
     r"""
@@ -62,7 +62,7 @@ class SphericalTophat(WindowFunction):
         raise ValueError("nu can only be 0, 1 or 2")
 
 tophat = SphericalTophat()
-builtinWindows['tophat'] = tophat
+available_models['tophat'] = tophat
 
 
 class Gaussian(WindowFunction):
@@ -83,7 +83,7 @@ class Gaussian(WindowFunction):
         raise ValueError("nu can only be 0, 1 or 2")
 
 gaussian = Gaussian()
-builtinWindows['gaussian'] = gaussian
+available_models['gaussian'] = gaussian
 
 
 # TODO: sharp-k filter

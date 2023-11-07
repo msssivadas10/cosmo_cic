@@ -14,7 +14,7 @@ from ._base import DensityProfile
 from .cmrelations import bullock01
 
 
-builtinProfiles = {}
+available_models = {}
 
 class NFW(DensityProfile):
     r"""
@@ -38,4 +38,4 @@ class NFW(DensityProfile):
         return res / np.power(c, 3.)
            
 nfw = NFW( bullock01 )
-builtinProfiles['nfw'] = nfw
+available_models['nfw'] = nfw

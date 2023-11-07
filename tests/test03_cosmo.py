@@ -167,4 +167,4 @@ def testAll(cm, what = 'pvmbgdu'):
 
 if __name__ == '__main__':
     cm = plank18 # testCosmology()
-    testAll(cm, 'u')
+    testAll(cm)

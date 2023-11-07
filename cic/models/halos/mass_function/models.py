@@ -5,7 +5,7 @@ from scipy.interpolate import CubicSpline
 from typing import Any
 from ._base import MassFunction
 
-builtinMassfunctions = {}
+available_models = {}
 
 
 class Press74(MassFunction):
@@ -24,7 +24,7 @@ class Press74(MassFunction):
         return f
     
 press74 = Press74()
-builtinMassfunctions['press74'] = press74
+available_models['press74'] = press74
     
 
 class Sheth01(MassFunction):
@@ -51,7 +51,7 @@ class Sheth01(MassFunction):
         return f
 
 sheth01 = Sheth01()
-builtinMassfunctions['sheth01'] = sheth01
+available_models['sheth01'] = sheth01
 
 
 class Tinker08(MassFunction):
@@ -101,5 +101,5 @@ class Tinker08(MassFunction):
         return f
     
 tinker08 = Tinker08()   
-builtinMassfunctions['tinker08'] = tinker08
+available_models['tinker08'] = tinker08
  

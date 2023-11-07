@@ -43,7 +43,31 @@ class CMRelation(ABC):
 
         """
 
-    __call__ = cmreln
+    def __call__(self, 
+                 model: object, 
+                 m: Any, 
+                 z: Any,
+                 overdensity: Any = None,
+                 grid: bool = False,
+                 **kwargs,              ) -> Any:
+        r"""
+        Returns the halo concentration as function of mass m, based on a cosmology model.
+
+        Parameters
+        ----------
+        model: Cosmology
+        m: array_like
+        z: array_like
+        overdensity: float, None
+        grid: bool, default = False
+            If set true, evaluate the function on a grid of input arrays. Otherwise, they must be broadcastable.
+
+        Returns
+        -------
+        res: array_like
+
+        """
+        return self.cmreln(model, m, z, overdensity, grid, **kwargs)
 
 
 class DensityProfile(ABC):

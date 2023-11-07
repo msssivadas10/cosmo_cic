@@ -12,7 +12,7 @@ from ._base import HaloBias
 from ...utils.constants import DELTA_SC
 
 
-builtinLinearBiases = {}
+available_models = {}
 
 
 class Cole89(HaloBias):
@@ -32,7 +32,7 @@ class Cole89(HaloBias):
         return bias
 
 cole89   = Cole89()
-builtinLinearBiases['cole89'] = cole89
+available_models['cole89'] = cole89
 
 
 class Tinker10(HaloBias):
@@ -60,4 +60,4 @@ class Tinker10(HaloBias):
         return bias
 
 tinker10 = Tinker10()
-builtinLinearBiases['tinker10'] = tinker10
+available_models['tinker10'] = tinker10

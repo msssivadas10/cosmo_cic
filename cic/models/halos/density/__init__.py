@@ -17,13 +17,13 @@ Available c-M relations are (defined in sub-module `cmrelations`)
 - `bullock01` - Bullock et. al. (2001)
 - `zheng07` - Zheng et. al. (2017). Redshift ~ 0 and 1
 
-and `builtinProfiles` and `builtinCMRelations` are dict of built-in profile and c-M relation models.
+and `builtin_profiles` and `builtin_cmrelations` are dict of built-in profile and c-M relation models.
 
 """
 
 from ._base import DensityProfile, CMRelation
-from .cmrelations import builtinCMRelations
-from .profiles import builtinProfiles
+from .cmrelations import available_models as builtin_cmrelations
+from .profiles import available_models as builtin_profiles
 
 __all__ = ['cmrelations', 'profiles']
 

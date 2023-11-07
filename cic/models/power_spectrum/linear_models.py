@@ -16,7 +16,7 @@ from ._base import PowerSpectrum
     
 
 # Pre-defined models 
-builtinPowerSpectrums = {} 
+available_models = {} 
 
 class PowerLaw(PowerSpectrum):
     r"""
@@ -38,7 +38,7 @@ class PowerLaw(PowerSpectrum):
         return lnTk
 
 powerlaw = PowerLaw()
-builtinPowerSpectrums['powerlaw'] = powerlaw
+available_models['powerlaw'] = powerlaw
 
 
 class Eisenstein98_zeroBaryon(PowerSpectrum):
@@ -79,7 +79,7 @@ class Eisenstein98_zeroBaryon(PowerSpectrum):
         return lnTk
     
 eisenstein98_zeroBaryon = Eisenstein98_zeroBaryon()
-builtinPowerSpectrums['eisenstein98_zb'] = eisenstein98_zeroBaryon
+available_models['eisenstein98_zb'] = eisenstein98_zeroBaryon
     
     
 class Eisenstein98_withNeutrino(PowerSpectrum):
@@ -162,5 +162,5 @@ class Eisenstein98_withNeutrino(PowerSpectrum):
         return lnTk
 
 eisenstein98_withNeutrino = Eisenstein98_withNeutrino()
-builtinPowerSpectrums['eisenstein98_nu'] = eisenstein98_withNeutrino
+available_models['eisenstein98_nu'] = eisenstein98_withNeutrino
 
