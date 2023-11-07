@@ -20,7 +20,17 @@ _ParalellProcessInfo = namedtuple('_ParalellProcessInfo', ['comm', 'rank', 'size
 
 def get_parellel_process_info(use_mpi: bool = True) -> _ParalellProcessInfo:
      r"""
-     Get the parellel process communicator, rank and size, if mpi is enabled.
+     Get the parellel process communicator, rank and size, if mpi is enabled. If `use_mpi` is 
+     enabled but, the required module `mpi4py` is not found, an error flag `err` will be set.
+
+     Parameters
+     ----------
+     use_mpi: bool, default = True
+
+     Returns
+     -------
+     res: _ParalellProcessInfo
+     
      """
      if not use_mpi: return _ParalellProcessInfo(None, 0, 1, 0)
      try: 
