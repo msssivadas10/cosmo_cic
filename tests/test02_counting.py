@@ -72,14 +72,14 @@ def checkResult():
     def normalCDF(x, loc, scale): return 0.5 * ( 1. + erf((x - loc) / scale) )      
     
     # load saved result
-    res = CountResult.load( outfile )
+    res = CountResult.load( outfile, 0 )
 
     res.add( np.cumsum( res.get('total_count'   ), axis = -2 ), 'total_count'   , replace = True )
     res.add( np.cumsum( res.get('unmasked_count'), axis = -2 ), 'unmasked_count', replace = True )
 
     # estimated distribution
     bins = np.arange(195.5, 350.5, 5.0)
-    hist = np.stack([np.histogram(res.get('total_count', 2, i).flatten(), 
+    hist = np.stack([np.histogram(res['total_count', 2, i].flatten(), 
                                   bins, 
                                   density = 1, )[0] for i in range(res.shape[-1])], -1)
     meanResult = mean(hist)

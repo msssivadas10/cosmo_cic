@@ -60,7 +60,7 @@ from random import choice
 from string import Template
 from argparse import ArgumentParser
 from typing import Any 
-from cic.measure2.counting import cicRectangularCell, _get_parellel_process_info
+from cic.measure2.counting import cicRectangularCell, get_parellel_process_info
 
 def randstr(__length: int) -> str:
     r"""
@@ -222,7 +222,7 @@ def main() -> None:
     with open(os.path.join(task_rootdir, 'used_options'), 'w') as fp: yaml.safe_dump(opts, fp)
 
     # configure logging:
-    rank    = _get_parellel_process_info(not args.no_mpi).rank
+    rank    = get_parellel_process_info(not args.no_mpi).rank
     logpath = os.path.join(task_rootdir, 'logs')
     if not os.path.exists(logpath): os.makedirs(logpath)
     logpath = os.path.join(logpath, "%d.log" % rank )
