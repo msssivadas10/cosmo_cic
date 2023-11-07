@@ -1,5 +1,11 @@
 #!/usr/bin/python3
 
+r"""
+
+Some relations connecting halo concentration parameter :math:`c` to its mass.
+
+"""
+
 import numpy as np
 from typing import Any
 from ._base import CMRelation
@@ -7,6 +13,9 @@ from ._base import CMRelation
 builtinCMRelations = {}
 
 class Bullock01(CMRelation):
+    r"""
+    Concentration mass relation given by Bullock et. al. (2001). 
+    """
 
     __slots__ = 'F', 'K'
 
@@ -40,6 +49,9 @@ builtinCMRelations['bullock01'] = bullock01
     
 
 class Zheng07(CMRelation):
+    r"""
+    Concentration mass relation given by Zheng et. al. (2017). Specified for redshifts 0 and 1.
+    """
 
     __slots__ = 'c0', 'beta'
 

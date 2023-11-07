@@ -14,7 +14,6 @@ class CMRelation(ABC):
         r"""
         Set parameters for the c-M relation.
         """
-        
         for attr, value in kwargs.items(): setattr(self, attr, value) 
         return self
 
@@ -27,22 +26,24 @@ class CMRelation(ABC):
                grid: bool = False,
                **kwargs,              ) -> Any:
         r"""
-        Return the halo concentration as function of mass m.
-        """
-        ...
+        Returns the halo concentration as function of mass m, based on a cosmology model.
 
-    def __call__(self, 
-                 model: object, 
-                 m: Any, 
-                 z: Any, 
-                 overdensity: Any = None, 
-                 grid: bool = False,
-                 **kwargs,              ) -> Any:
-        r"""
-        Return the halo concentration as function of mass m.
+        Parameters
+        ----------
+        model: Cosmology
+        m: array_like
+        z: array_like
+        overdensity: float, None
+        grid: bool, default = False
+            If set true, evaluate the function on a grid of input arrays. Otherwise, they must be broadcastable.
+
+        Returns
+        -------
+        res: array_like
+
         """
-        
-        return self.cmreln(model, m, z, overdensity, grid, **kwargs)
+
+    __call__ = cmreln
 
 
 class DensityProfile(ABC):
@@ -57,11 +58,14 @@ class DensityProfile(ABC):
         
     def setCMRelation(self, cm: CMRelation) -> None:
         r"""
-        Set a c-M relation.
-        """
+        Set a c-M relation (an instance of `CMRelation`).
 
-        if not isinstance(cm, CMRelation):
-            raise TypeError("cm must be 'CMRelation' instance")
+        Parameters
+        ----------
+        cm: CMRelation
+
+        """
+        if not isinstance(cm, CMRelation): raise TypeError("cm must be 'CMRelation' instance")
         self.cm = cm
         return
 
@@ -73,7 +77,21 @@ class DensityProfile(ABC):
           grid: bool = False, 
           **kwargs,              ) -> Any:
         r"""
-        Return the halo consentration as function of mass m.
+        Returns the halo consentration as function of mass m.
+
+        Parameters
+        ----------
+        model: Cosmology
+        m: array_like
+        z: array_like
+        overdensity: float, None
+        grid: bool, default = False
+            If set true, evaluate the function on a grid of input arrays. Otherwise, they must be broadcastable.
+
+        Returns
+        -------
+        res: array_like
+
         """
         
         return self.cm(model, m, z, overdensity, grid, **kwargs)
@@ -89,7 +107,27 @@ class DensityProfile(ABC):
                  grid: bool = False,
                  **kwargs,              ) -> Any:
         r"""
-        Return the halo profile function in real or fourier space. 
+        Returns the halo profile function in real or fourier space. 
+
+        Parameters
+        ----------
+        model: Cosmology
+        arg: array_like
+            Distance from the centre if `ft = False` and wavenumber otherwise.
+        m: array_like
+        z: array_like
+        overdensity: float, None
+        ft: bool, default = False
+        truncate: bool, default = False
+            If set, trucate the profile at virial radius for real space.
+        grid: bool, default = False
+            If set true, evaluate the function on a grid of input arrays (m and z). Otherwise, they 
+            must be broadcastable.
+
+        Returns
+        -------
+        res: array_like
+        
         """
         
         if grid:
@@ -120,20 +158,46 @@ class DensityProfile(ABC):
     def A(self, c: Any) -> Any:
         r"""
         Function related to the virial mass calculations.
+
+        Parameters
+        ----------
+        c: array_like
+
+        Returns
+        -------
+        res: array_like
+
         """
-        ...
 
     @abstractmethod
     def f(self, x: Any, c: Any) -> Any:
         r"""
         Real space profile of the halo as function of distance from centre. 
+
+        Parameters
+        ----------
+        x: array_like
+        c: array_like
+
+        Returns
+        -------
+        res: array_like
+
         """
-        ...
 
     @abstractmethod
     def u(self, q: Any, c: Any) -> Any:
         r"""
         Fourier space profile of the halo as function of wavenumber.
+
+        Parameters
+        ----------
+        x: array_like
+        c: array_like
+
+        Returns
+        -------
+        res: array_like
+        
         """
-        ...    
 

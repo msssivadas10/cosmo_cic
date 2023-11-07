@@ -1,5 +1,12 @@
 #!/usr/bin/python3
 
+r"""
+
+Some halo density profiles. All models are pre-loaded with c-M relation of Bullock (2001). Reset 
+with method `setCMRelation` of the profile.
+
+"""
+
 import numpy as np
 from scipy.special import sici
 from typing import Any 
@@ -11,7 +18,7 @@ builtinProfiles = {}
 
 class NFW(DensityProfile):
     r"""
-    An NFW halo profile.
+    The NFW halo profile, by Navarro, Frenk and White (1997).
     """
 
     def A(self, c: Any) -> Any: 
