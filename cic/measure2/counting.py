@@ -8,8 +8,8 @@ for patch-wise measurement for later re-samplings and parellel processing using 
 
 Available methods:
 
-- Count-in-cells using rectangular cells (in any dimensions), `countObjectsRectangularCell`.
-- Complete count-in-cells workflow with rectangular cells, `cicRectangularCell`.
+- `countObjectsRectangularCell` for count-in-cells using rectangular cells (in any dimensions).
+- `cicRectangularCell` - a complete count-in-cells workflow with rectangular cells.
 
 """
 
