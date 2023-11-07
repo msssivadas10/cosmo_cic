@@ -23,7 +23,7 @@ class Cosmology:
     quantities such as the matter power spectrum and halo mass-function. Currently, the model does not 
     include radiation.
 
-    Parmeters
+    Parameters
     ---------
     h: float 
         Present hubble parameter in 100 km/sec/Mpc unit.

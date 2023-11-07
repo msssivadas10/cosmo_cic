@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 r"""
 
+A module for count-in-cells.
+
 Utilities for count-in-cells measurement on a general N-dimensional point data, with support 
 for patch-wise measurement for later re-samplings and parellel processing using MPI. 
 
