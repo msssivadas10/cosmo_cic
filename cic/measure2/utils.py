@@ -1,8 +1,10 @@
 #!/usr/bin/python3
 
-import json, os
+import os
+import json, gzip
 import numpy as np
 from abc import ABC, abstractmethod
+from collections import namedtuple
 from typing import Any
 
 EPS = 1e-06 # tolerence to match two floats
@@ -13,6 +15,19 @@ class MeasurementError( Exception ):
     r"""
     Base class of exceptions raised during failure in measurements.    
     """
+
+_ParalellProcessInfo = namedtuple('_ParalellProcessInfo', ['comm', 'rank', 'size', 'err'])
+
+def get_parellel_process_info(use_mpi: bool = True) -> _ParalellProcessInfo:
+     r"""
+     Get the parellel process communicator, rank and size, if mpi is enabled.
+     """
+     if not use_mpi: return _ParalellProcessInfo(None, 0, 1, 0)
+     try: 
+         from mpi4py import MPI
+         comm = MPI.COMM_WORLD
+         return _ParalellProcessInfo(comm, comm.rank, comm.size, 0)
+     except ModuleNotFoundError: return _ParalellProcessInfo(None, 0, 1, 1)
 
 def getNearestPrettyNumber(value: float, round: bool = False) -> float:
     r"""
@@ -169,64 +184,41 @@ class Box(Shape):
         self.min = np.asfarray( min ) # minimum corner
         self.max = np.asfarray( max ) # maximum corner
 
-    def __repr__(self) -> str:
-        return f"Box(min={self.min!r}, max={self.max!r})"
+    def __repr__(self) -> str: return f"Box(min={self.min!r}, max={self.max!r})"
     
     @property
     def dim(self) -> int: return np.size( self.min )
 
     def intersect(self, other: 'Shape') -> bool:
-
-        if not isinstance(other, Shape):
-            raise ShapeError("other must be an instance of 'Shape'")
-
-        if not isinstance(other, Box):
-            raise NotADirectoryError()
-        
-        if not self.samedim( other ):
-            raise ShapeError("both boxes should have same dimensions")
-
+        if not isinstance(other, Shape): raise ShapeError("other must be an instance of 'Shape'")
+        if not isinstance(other, Box): raise NotADirectoryError()
+        if not self.samedim( other ): raise ShapeError("both boxes should have same dimensions")
         return not np.any( np.logical_or( self.min >= other.max, self.max <= other.min ) )
     
     def join(self, other: 'Box', cls: type = None) -> 'Box':
-
-        if not isinstance(other, Box):
-            raise ShapeError("other must be an instance of 'Box'")
-        
-        if not self.samedim( other ):
-            raise ShapeError("both boxes should have same dimensions")
+        if not isinstance(other, Box): raise ShapeError("other must be an instance of 'Box'")
+        if not self.samedim( other ): raise ShapeError("both boxes should have same dimensions")
         
         _min = np.min([self.min, other.min], axis = 0)
         _max = np.max([self.max, other.max], axis = 0)
 
-        if cls is None:
-            cls = self.__class__
-        elif not issubclass(cls, Box):
-            raise TypeError("cls must be a subclass of 'Box'")
+        if cls is None: cls = self.__class__
+        elif not issubclass(cls, Box): raise TypeError("cls must be a subclass of 'Box'")
         
         # only works if the subclass __init__ method take arguments as __init__(self, min, max) 
         # or __init__(self, *min, *max) otherwise, re-define the method in the subclass
-        try:
-            return cls( _min, _max )
-        except Exception:
-            return cls( *_min, *_max )
+        try: return cls( _min, _max )
+        except Exception: return cls( *_min, *_max )
 
-    def volume(self) -> float:
-        return np.prod( self.max - self.min )
+    def volume(self) -> float: return np.prod( self.max - self.min )
     
     def __eq__(self, other: object) -> bool:
-
-        if not isinstance(other, Box):
-            return NotImplemented
-        
-        if not self.samedim( other ):
-            return False
-        
+        if not isinstance(other, Box): return NotImplemented
+        if not self.samedim( other ): return False
         return np.all(np.logical_and(np.abs(self.min - other.min) <= EPS, 
                                      np.abs(self.max - other.max) <= EPS, ))
     
-    def to_json(self) -> object:
-        return dict( min = self.min.tolist(), max = self.max.tolist() )
+    def to_json(self) -> object: return dict( min = self.min.tolist(), max = self.max.tolist() )
     
     @classmethod
     def create(cls, obj: Any) -> 'Box':
@@ -236,10 +228,8 @@ class Box(Shape):
 
         Parameters
         ----------
-        obj: Subclass of Box, array_like, dict
-            If obj is an array, it should be an array of input arguments as they appear in 
-            the class' __init__ method, if it is a dict, it must a mapping of keyword name 
-            and value. 
+        obj: object
+            A list or dict with minimum and maximum coordinates, or another `Box` instance. 
 
         Returns
         -------
@@ -252,15 +242,10 @@ class Box(Shape):
 
         """
         
-        if not isinstance( obj, Box ):
-            try:
-                if isinstance( obj, dict ):
-                    return cls( **obj )
-                return cls( *obj )
-            except Exception as e:
-                raise ShapeError(f"cannot create box, {e}")
-        
-        return obj
+        if isinstance(obj, dict): return cls(**obj)
+        if np.ndim( obj ) == 2 and np.size( obj ) == 2: return cls(*obj)
+        if isinstance( obj, Box ): return cls(obj.min, obj.max)
+        raise ShapeError(f"cannot convert object to Box")
     
 
 class Rectangle(Box):
@@ -280,21 +265,22 @@ class Rectangle(Box):
 
     Examples
     --------
-    >>> b = Rectangle(0., 0., 1., 1.)
+    >>> Rectangle([0., 0.], [1., 1.])
+    Rectangle(x_min=0.0, y_min=0.0, x_max=1.0, y_max=1.0)
+
+    or, 
+
+    >>> Rectangle.c(0., 0., 1., 1.)
     Rectangle(x_min=0.0, y_min=0.0, x_max=1.0, y_max=1.0)
 
     """
 
-    def __init__(self, 
-                 x_min: float, 
-                 y_min: float, 
-                 x_max: float, 
-                 y_max: float, ) -> None:
-
-        if any( map( lambda x: np.ndim(x) > 0, [x_min, x_max, y_min, y_max] ) ):
-            raise ShapeError("arguments must be scalars")
-        
-        super().__init__([x_min, y_min], [x_max, y_max])
+    @classmethod
+    def c(cls, 
+          x_min: float, 
+          y_min: float, 
+          x_max: float, 
+          y_max: float, ) -> None: return cls([x_min, y_min], [x_max, y_max])
 
     @property
     def x_min(self) -> float: return self.min[0]
@@ -341,30 +327,21 @@ class Rectangle(Box):
         x_width, y_width = self.x_max - self.x_min, self.y_max - self.y_min
 
         # area of flat rectangle: width * length
-        if not sphere:
-            return x_width * y_width
+        if not sphere: return x_width * y_width
         
         # converting degree to radian
-        if degree:
+        if degree: 
             x_width, y_width = x_width * UNIT_DEGREE_IN_RADIAN, y_width * UNIT_DEGREE_IN_RADIAN
         
         res = 4 * np.arcsin( np.tan( 0.5 * x_width ) * np.tan( 0.5 * y_width ) ) # in rad**2
 
         # converting area back to deg**2
-        if degree:
+        if degree: 
             res = res * UNIT_RADIAN_IN_DEGREE**2
 
         return res
     
     area = volume # volume means area 2d
-
-    @classmethod
-    def create(cls, obj: Any) -> 'Rectangle':
-        if isinstance(obj, Box):
-            if obj.dim != 2:
-                raise ShapeError("obj is not 2 dimensional")
-            return Rectangle( *obj.min, *obj.max )
-        return super().create(obj)
 
     
 class Box3D(Box):
@@ -384,23 +361,24 @@ class Box3D(Box):
 
     Examples
     --------
-    >>> b = Box3D(0., 0., 0., 1., 1., 1.)
+    >>> Box3D([0., 0., 0.], [1., 1., 1.])
+    Box3D(x_min=0.0, y_min=0.0, z_min=0.0, x_max=1.0, y_max=1.0, z_max=1.0)
+
+    or,
+
+    >>> Box3D.c(0., 0., 0., 1., 1., 1.)
     Box3D(x_min=0.0, y_min=0.0, z_min=0.0, x_max=1.0, y_max=1.0, z_max=1.0)
 
     """
 
-    def __init__(self, 
-                 x_min: float, 
-                 y_min: float, 
-                 z_min: float, 
-                 x_max: float, 
-                 y_max: float, 
-                 z_max: float, ) -> None:
-
-        if any( map( lambda x: np.ndim(x) > 0, [x_min, x_max, y_min, y_max, z_min, z_max] ) ):
-            raise ShapeError("arguments must be scalars")
-        
-        super().__init__([x_min, y_min, z_min], [x_max, y_max, z_max])
+    @classmethod
+    def c(cls, 
+          x_min: float, 
+          y_min: float, 
+          z_min: float, 
+          x_max: float, 
+          y_max: float, 
+          z_max: float, ) -> None: return cls([x_min, y_min, z_min], [x_max, y_max, z_max])
 
     @property
     def x_min(self) -> float: return self.min[0]
@@ -422,14 +400,7 @@ class Box3D(Box):
 
     def __repr__(self) -> str:
         return f"Box3D(x_min={self.x_min}, y_min={self.y_min}, z_min={self.z_min}, x_max={self.x_max}, y_max={self.y_max}, z_max={self.z_max})"
-    
-    @classmethod
-    def create(cls, obj: Any) -> 'Box3D':
-        if isinstance(obj, Box):
-            if obj.dim != 3:
-                raise ShapeError("obj is not 3 dimensional")
-            return Box3D( *obj.min, *obj.max )
-        return super().create(obj)
+
 
     
 #############################################################################################################
@@ -579,13 +550,14 @@ class CountResult:
         self.data.clear()
         self.shape = None
 
-    def save(self, path: str) -> None:
+    def save(self, path: str, compress: bool = True) -> None:
         r"""
         Save the results to a file `path` in a JSON format.
 
         Parameters
         ----------
         path: str
+        compress: bool, default = True
 
         """     
 
@@ -604,28 +576,37 @@ class CountResult:
 
         obj['extra_bins'] = { label: value.tolist() for label, value in self.extra_bins.items() }
 
-        with open( path, 'w' ) as file:
-            json.dump(obj, file, indent = 4)
+        if compress:
+            with gzip.open( path, 'wb' ) as file: 
+                file.write( json.dumps(obj, separators = (',',':')).encode('utf-8') )
+        else:
+            with open( path, 'w' ) as file: 
+                json.dump(obj, file, indent = 4)
 
         return  
 
     @classmethod
-    def load(cls, path: str) -> 'CountResult':
+    def load(cls, path: str, compress: bool = True) -> 'CountResult':
         r"""
         Load a saved result from a JSON file `path`.
 
         Parameters
         ----------
         path: str
-        
+        compress: bool, default = True
+
         """
 
         if not os.path.exists( path ):
             raise FileNotFoundError( f"path '{ path }' does not exist" )
         
         # load in JSON format
-        with open( path, 'r' ) as file:
-            obj = json.load( file )
+        if compress:
+            with gzip.open( path, 'rb' ) as file: 
+                obj = json.loads( file.read().decode('utf-8') )
+        else:
+            with open( path, 'r' ) as file:
+                obj = json.load( file )
 
         res = CountResult(region      = obj['region'], 
                           patches     = obj['patches'],
@@ -665,5 +646,9 @@ class CountResult:
         data = self.data.get( label )
         axis = (..., *i)
         return data if i is None else data[axis]
+    
+    def __getitem__(self, __key: str | tuple) -> Any:
+        if isinstance(__key, tuple): return self.get(*__key)
+        return self.get(__key)
     
     

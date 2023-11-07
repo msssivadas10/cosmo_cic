@@ -16,12 +16,72 @@ class CosmologyError(Exception):
     r"""
     Base class of exceptions raised in cosmology related calculations.
     """
-    ...
-
 
 class Cosmology:
     r"""
-    A Lambda CDM cosmology class.
+    Base class represesnting a cosmology model. This object can be used to calculate various cosmological 
+    quantities such as the matter power spectrum and halo mass-function. Currently, the model does not 
+    include radiation.
+
+    Parmeters
+    ---------
+    h: float 
+        Present hubble parameter in 100 km/sec/Mpc unit.
+    Om0: float
+        Present total matter density parameter.
+    Om0: float
+        Present total matter density parameter.
+    Onu0, Nnu: float, optional
+        Present density parameter and number of specieses of massive neutrino. Default values are `Onu0 = 0` 
+        and `Nnu = 3`.
+    Ode0: float, default = None
+        Present dark energy density. If not given, the universe is assumed flat and set to a value so that total 
+        density is 1. Otherwise, curvature is adjusted to make so.
+    ns: float, default = 1
+        Initial power spectrum index.
+    sigma8: float, default = None
+        Power spectrum normalization. This set the value of the matter varaiance, smoothed at a 
+        scale of 8 Mpc/h.  
+    Tcmb0: float, default = 2.725
+        Present temperature of the cosmic microwave background in K.
+    name: str, optional
+        Name for this cosmology model. If not given, a random name is used.
+
+    Attributes
+    ----------
+    settings: _CosmologySettings
+        Various settings for related calculations, such as integration limits, interpolation range etc.
+
+    Raises
+    ------
+    CosmologyError
+
+    Notes
+    -----
+    - In calculations, astrophysical units are used. Masses are in :math:`{\rm Msun}`/h, distances (or scales) are 
+      in :math:`{\rm Mpc}/h` and time in Gyr. All other derived quantities will have units accordingly.
+
+    Examples
+    --------
+    To create a flat cosmology model with :math:`h = 0.7, \Omega_m = 0.3, \Omega_b = 0.05`, power spectrum index 
+    :mathh:`n_s = 1` and normalization `\sigma_8 = 0.8`, 
+
+    >>> cm = Cosmology(h = 0.7, Om0 = 0.3, Ob0 = 0.05, ns = 1., sigma8 = 0.8, name = 'test_cosmology')
+    >>> cm
+    Cosmology(name=test_cosmology, h=0.7, Om0=0.3, Ob0=0.05, Ode0=0.7, ns=1.0, sigma8=0.8, Tcmb0=2.725)
+
+    Then, set models for power spectrum (Eisenstein & Hu 1998, zero baryon model), halo mass-function (Tinker 2008) and 
+    halo bias (Tinker 2010):
+
+    >>> cm.set(power_spectrum = 'eisenstein98_zb', mass_function = 'tinker08', halo_bias = 'tinker10')
+
+    After creating interpolation tables and normalizing the power spectrum, 
+
+    >>> cm.createInterpolationTables() 
+    >>> cm.normalizePowerSpectrum() # massfunction, bias etc not work properly without this step
+
+    the object is ready to use for practical calculations!
+
     """
 
     __slots__ = ('h', 'Om0', 'Ob0', 'Ode0', 'Onu0', 'Ok0', 'Nnu', 'ns', 'sigma8', 'Tcmb0', 
@@ -70,7 +130,7 @@ class Cosmology:
 
         # set a name for this cosmology model
         if name is None:
-            self.name = '_'.join([ 'Cosmology', randomString(16) ])
+            self.name = '_'.join([ 'Cosmology', randomString(8) ])
         else:
             if not isinstance(name, str): raise TypeError( "name must be 'str' or None" )
             self.name = name 
@@ -94,19 +154,26 @@ class Cosmology:
         r"""
         String representation of the object.
         """
-        
-        attrs    = ['name', 'h', 'Om0', 'Ob0', 'Ode0', 'Onu0', 'Nnu', 'ns', 'sigma8', 'Tcmb0']
-        data_str = ', '.join( map(lambda __x: f'{__x}={ getattr(self, __x) }', attrs ) )
-        return f"Cosmology({data_str})"
+        attrs = ['name', 'h', 'Om0', 'Ob0', 'Ode0']
+        if self.Onu0 > 0.: attrs.extend(['Onu0', 'Nnu'])
+        attrs.extend(['ns', 'sigma8', 'Tcmb0'])
+        return 'Cosmology(%s)' % (', '.join( map(lambda __x: f'{__x}={ getattr(self, __x) }', attrs ) ))
     
     def set(self, 
             power_spectrum: str | PowerSpectrum = None, 
             mass_function: str | MassFunction = None, 
             halo_bias: str | HaloBias = None) -> None:
         r"""
-        Set model for quantities like power spectrum, mass function etc.
+        Set model for quantities like power spectrum, mass function etc. The model can be a string name for 
+        any available model, or an instance of the model class.
+
+        Parameters
+        ----------
+        power_spectrum: str, PowerSpectrum, default = None
+        mass_function: str, MassFunction, default = None
+        halo_bias: str, HaloBias, default = None
+
         """
-        
         if power_spectrum is not None: self._model.power_spectrum = power_spectrum
         if mass_function is not None: self._model.mass_function = mass_function
         if halo_bias is not None: self._model.halo_bias = halo_bias
@@ -114,7 +181,17 @@ class Cosmology:
      
     def createInterpolationTables(self) -> None:
         r"""
-        Create interpolation tables for fast calculations.
+        Create interpolation tables for fast calculations. Settings for creating the tables are taken from 
+        the `settings` attribute of the instance. Creation of these tables has to be done by the user after 
+        creating the instance. Trying to calculate interpolated values of quantites without creating the 
+        tables will issue a warning. 
+
+        Notes
+        -----
+        - `settings.xInterpMin` and `settings.xInterpMax` set the bounds of interpolation table.
+        - 'settings.xInterpPoints` set the number of points used for interpolation. The grid is equally spaced.
+
+        Replace `x` with `z` for redshift, `k` for wavenumber, `m` for mass and `r` for radius.
         """
 
         lnzap1 = np.log( self.settings.zInterpMin + 1 )
@@ -147,9 +224,24 @@ class Cosmology:
             lnzp1: Any, 
             der: bool = False) -> Any:
         r"""
-        Return the redshift evolution of dark energy density. 
-        """
+        Return the redshift evolution of dark energy density, as function of the log variable :math:`\ln(z+1)`. 
 
+        Parameters
+        ----------
+        lnzp1: array_like
+        der: bool, default = False
+
+        Returns
+        -------
+        res: array_like
+
+        Notes
+        -----
+        For the standard :math:`\Lambda`-CDM cosmology, this has the value 1 at all redshift, which means the 
+        dark-energy density is constant (cosmological constant). This method allows z-dependent dark-energy 
+        models in subclasses. 
+
+        """
         if der:
             return np.zeros_like(lnzp1, dtype = 'float')
         return np.ones_like(lnzp1, dtype = 'float')
@@ -158,7 +250,22 @@ class Cosmology:
              lnzp1: Any, 
              der: bool = False ) -> float:
         r"""
-        Calculate the redshift evolution of hubble parameter.
+        Calculate the redshift evolution of hubble parameter, as function of the log variable :math:`\ln(z+1)`. 
+        This returns the value of :math:`\ln E^2(z)` or its log derivative.
+        
+        .. math:
+            
+            E^2(z) = \Omega_{\rm m} (z + 1)^3 + \Omega_{\rm k} (z + 1)^2 + \Omega_{\rm de}
+
+        Parameters
+        ----------
+        lnzp1: array_like
+        der: bool, default = False
+
+        Returns
+        -------
+        res: array_like
+
         """
 
         zp1 = np.exp( lnzp1 )
@@ -182,41 +289,86 @@ class Cosmology:
     
     def E(self, z: Any) -> float:
         r"""
-        Calculate the redshift evolution of hubble parameter.
-        """
+        Calculate the redshift evolution of hubble parameter. This returns the value of the function 
+        :math:`E(z) = H(z) / H_0` at a redshift :math:`z`.
 
+        Parameters
+        ----------
+        z: array_like
+
+        Returns
+        -------
+        res: array_like
+
+        See Also
+        --------
+        Cosmology.lnE2
+
+        """
         lnzp1 = np.log( np.add(z, 1) )
         return np.exp( 0.5 * self.lnE2( lnzp1 ) )
     
     def Om(self, z: Any) -> float:
         r"""
-        Calculate the evolution of matter density.
-        """
+        Returns the matter density at redshift :math:`z`.
 
+        Parameters
+        ----------
+        z: array_like
+
+        Returns
+        -------
+        res: array_like
+
+        """
         zp1 = np.add(z, 1)
         return self.Om0 * zp1**3 /self.E(z)**2
     
     def Ode(self, z: Any) -> float:
         r"""
-        Calculate the evolution of dark-energy density.
-        """
+        Returns the dark-energy density at redshift :math:`z`.
 
+        Parameters
+        ----------
+        z: array_like
+
+        Returns
+        -------
+        res: array_like
+
+        """
         lnzp1 = np.log( np.add(z, 1) )
         return self.Ode0 * self.fde(lnzp1) / self.E(z)**2
     
     def matterDensity(self, z: Any) -> float:
         r"""
-        Calculate the matter density.
-        """
+        Returns the matter density at redshift :math:`z`. 
 
+        Parameters
+        ----------
+        z: array_like
+
+        Returns
+        -------
+        res: array_like
+
+        """
         zp1 = np.asfarray(z) + 1
         return  RHO_CRIT0_ASTRO * self.Om0 * zp1**3
     
     def criticalDensity(self, z: Any) -> float:
         r"""
-        Calculate the critical density of the universe.
-        """
+        Returns the critical density of the universe at redshift :mathh:`z`. 
 
+        Parameters
+        ----------
+        z: array_like
+
+        Returns
+        -------
+        res: array_like
+
+        """
         return RHO_CRIT0_ASTRO * self.E(z)**2
     
     #
@@ -229,7 +381,26 @@ class Cosmology:
                          log: bool = False, 
                          exact: bool = False, ) -> float:
         r"""
-        Calculate the comoving distance corresponding to redshift z.
+        Calculate the comoving distance corresponding to redshift :math:`z`. 
+
+        Parameters
+        ----------
+        z: array_like
+        nu: int, default = 0
+            Degree of the log derivative. 0 means no derivative. 
+        log: bool, default = False
+            Tells that the input is :math:`log(z+1)` and return log of the result. Ignored if `nu != 0`.
+        exact: bool, default = False
+            Tells if to return the exact calaculated value or interpolated value. 
+
+        Returns
+        -------
+        res: array_like
+
+        Notes
+        -----
+        - Value of `settings.zIntegralPoints` is used as the number of points for z integration.
+
         """
 
         lnzp1 = np.log( np.asfarray(z) + 1 )
@@ -249,7 +420,26 @@ class Cosmology:
                            log: bool = False, 
                            exact: bool = False, ) -> float:
         r"""
-        Calculate the luminocity distance corresponding to redshift z.
+        Calculate the luminocity distance corresponding to redshift :math:`z`.
+
+        Parameters
+        ----------
+        z: array_like
+        nu: int, default = 0
+            Degree of the log derivative. 0 means no derivative.
+        log: bool, default = False
+            Tells that the input is :math:`log(z+1)` and return log of the result. Ignored if `nu != 0`.
+        exact: bool, default = False
+            Tells if to return the exact calaculated value or interpolated value. 
+
+        Returns
+        -------
+        res: array_like
+
+        See Also
+        ---------
+        Cosmology.comovingDistance
+
         """
 
         r = self.comovingDistance( z )
@@ -269,7 +459,26 @@ class Cosmology:
                                 log: bool = False, 
                                 exact: bool = False, ) -> float:
         r"""
-        Calculate the angular diameter distance corresponding to redshift z.
+        Calculate the angular diameter distance corresponding to redshift :math:`z`.
+
+        Parameters
+        ----------
+        z: array_like
+        nu: int, default = 0
+            Degree of the log derivative. 0 means no derivative.
+        log: bool, default = False
+            Tells that the input is :math:`log(z+1)` and return log of the result`. Ignored if `nu != 0`.
+        exact: bool, default = False
+            Tells if to return the exact calaculated value or interpolated value. 
+
+        Returns
+        -------
+        res: array_like
+
+        See Also
+        ---------
+        Cosmology.luminocityDistance
+
         """
 
         return self.luminocityDistance( z ) / ( 1 + np.asfarray( z ) )**2 # Mpc/h
@@ -279,7 +488,23 @@ class Cosmology:
                     z: Any, 
                     inverse: bool = False ) -> float:
         r"""
-        Convert size from physical (Mpc/h) to angular (arcsec) units.
+        Convert size from physical to angular (arcsec) units.
+
+        Parameters
+        ----------
+        value: array_like
+        z: array_like
+        inverse: bool, default = False
+            If true, `value` is the angular size and corresponding physical size is returned. 
+
+        Returns
+        -------
+        res: array_like
+
+        See Also
+        ---------
+        Cosmology.angularDiameterDistance
+
         """
 
         value = np.asfarray(value)
@@ -302,7 +527,27 @@ class Cosmology:
               log: bool = False, 
               exact: bool = False, ) -> Any:
         r"""
-        Calculate the linear growth factor or its logarithmic derivative.
+        Calculate the linear growth factor or its logarithmic derivative at redshift :math:`z`.
+
+        Parameters
+        ----------
+        z: array_like
+        nu: int, default = 0
+            Degree of the log derivative. 0 means no derivative. Alowed values are 0 and 1.
+        log: bool, default = False
+            Tells that the input is :math:`log(z+1)` and return log of the result. Not used if `nu != 0`.
+        exact: bool, default = False
+            Tells if to return the exact calaculated value or interpolated value. 
+
+        Returns
+        -------
+        res: array_like
+
+        Notes
+        -----
+        - Value of `settings.zIntegralPoints` is used as the number of points for integration.
+        - Value of `settings.zInfinity` is used as the upper limit of integration.
+
         """
 
 
@@ -351,7 +596,26 @@ class Cosmology:
                             exact: bool = False, 
                             normalize: bool = True, ) -> Any:
         r"""
-        Calculate the linear matter matter power spectrum.
+        Calculate the matter power spectrum at wavenumber :math:`k`, or its log derivative.
+
+        Parameters
+        ----------
+        k: array_like
+        z: array_like
+        nu: int, default = 0
+            Degree of the log derivative. 0 means no derivative. Allowed values are 0 and 1. 
+        grid: bool = False
+            If true, evaluate the function on a grid of input arrays. Otherwise, inputs must be broadcastable.
+        log: bool, default = False
+            Tells that the input is :math:`log(z+1)` and return log of the result. Not used if `nu != 0`.
+        exact: bool, default = False
+            Tells if to return the exact calaculated value or interpolated value. 
+        normalize: bool, default = True
+
+        Returns
+        -------
+        res: array_like
+
         """
 
         if self._model.power_spectrum is None:
@@ -395,7 +659,32 @@ class Cosmology:
                        exact: bool = False, 
                        normalize: bool = True) -> Any:
         r"""
-        Calculate the the linear matter variance or its derivatives.
+        Calculate the matter variance smoothed at a radius :math:`r`, or its log derivatives.
+
+        Parameters
+        ----------
+        r: array_like
+        z: array_like
+        nu: int, default = 0
+            Degree of the log derivative. 0 means no derivative. Allowed values are 0, 1 and 2.
+        grid: bool = False
+            If true, evaluate the function on a grid of input arrays. Otherwise, inputs must be broadcastable.
+        log: bool, default = False
+            Tells that the input is :math:`log(z+1)` and return log of the result. Not used if `nu != 0`.
+        exact: bool, default = False
+            Tells if to return the exact calaculated value or interpolated value. 
+        normalize: bool, default = True
+
+        Returns
+        -------
+        res: array_like
+
+        Notes
+        -----
+        - Value of `settings.kIntegralPoints` is used as the number of points for integration.
+        - Value of `settings.kZero` and `settings.kInfinity` is used as the limits of integration.
+        - Value of `settings.smoothWindow` is used as the smoothing window.
+
         """
 
         if nu not in range(3):
@@ -443,7 +732,7 @@ class Cosmology:
     
     def normalizePowerSpectrum(self, reset: bool = False) -> None:
         r"""
-        Normalize the matter power spectrum useing `sigma8` values.
+        Normalize the matter power spectrum useing :math:`\sigma_8` value.
         """
         
         self._psnorm = 1.        
@@ -462,7 +751,17 @@ class Cosmology:
                     r: Any, 
                     overdensity: float = None, ) -> Any:
         r"""
-        Mass corresponding to lograngian radius r.
+        Returns the halo mass corresponding to lagrangian radius :math:`r and overdensity. 
+
+        Parameters
+        ----------
+        r: array_like
+        overdensity: float, default = None
+
+        Returns
+        -------
+        res: array_like 
+
         """
 
         rho = self.Om0 * RHO_CRIT0_ASTRO 
@@ -476,7 +775,17 @@ class Cosmology:
                     m: Any, 
                     overdensity: float = None, ) -> Any:
         r"""
-        Lagrangian radius corresponding to mass m.
+        Retruns the lagrangian radius corresponding to halo mass :math:`m` and overdensity. 
+
+        Parameters
+        ----------
+        m: array_like
+        overdensity: float, default = None
+
+        Returns
+        -------
+        res: array_like 
+
         """
 
         rho = self.Om0 * RHO_CRIT0_ASTRO
@@ -488,17 +797,24 @@ class Cosmology:
     
     def collapseDensity(self, z: Any) -> Any:
         r"""
-        Retrun the critical density for spherical collapse.
-        """
-        
-        res = np.ones_like( z ) * DELTA_SC
+        Returns the critical density for spherical collapse. In most times, 1.686 can be used for this.
 
-        # corrections for specific cosmologies
+
+        Parameters
+        ----------
+        z: array_like
+
+        Returns
+        -------
+        res: array_like 
+
+        """
         if abs( self.Om0 - 1. ) < EPS and abs( self.Ode0 ) < EPS:
             res = self.Om( z )**0.0185
         elif abs( self.Om0 + self.Ode0 - 1. ) < EPS:
             res = self.Om( z )**0.0055
-
+        else: 
+            res = np.ones_like( z ) 
         return res * DELTA_SC
     
     def peakHeight(self, 
@@ -508,7 +824,28 @@ class Cosmology:
                    exact: bool = False, 
                    normalize: bool = True, ) -> Any:
         r"""
-        Calculate the peak height of an overdensity.
+        Returns the peak height of an overdensity. Parameters are same as for `matterVariance`.
+
+        .. math:
+
+            \nu(r, z) = \frac{ \delta_c(z) }{ \sigma(r, z) }
+
+        Parameters
+        ----------
+        r: array_like
+        z: array_like
+        grid: bool, default = False
+        exact: bool, default = False
+        normalize: bool, default = True
+
+        Returns
+        -------
+        res: array_like 
+
+        See Also
+        ---------
+        Cosmology.matterVariance
+
         """
 
         delta_c = self.collapseDensity( z )
@@ -522,7 +859,28 @@ class Cosmology:
                      retval: str = 'dndlnm', 
                      grid: bool = False,   ) -> Any:
         r"""
-        Calculate the halo mass-function.
+        Returns the halo mass-function, number density of halos of mass :math:`m` at redshift :math:`z`. Returned 
+        value will have different units, based on which quantity is returned. 
+
+        .. math:
+
+            \frac{dn}{dm} = f(\sigma) \frac{d\ln\sigma}{d\ln m} \frac{\rho(z)}{m}
+
+        Parameters
+        ----------
+        m: array_like
+        z: array_like, default = 0
+        overdensity: float, default = 200
+        retval: {`f`, `dndm`, `dndlnm`, `full`}
+            Which quantity to return. `f` will return the value of function :math:`f(\sigma)`. `full` will return all 
+            the values, including variance, as a tuple. 
+        grid: bool, default = False
+            If true, evaluate the function on a grid of input arrays. Otherwise, inputs must be broadcastable.
+
+        Returns
+        -------
+        res: array_like 
+
         """
 
         if self._model.mass_function is None:
@@ -542,7 +900,20 @@ class Cosmology:
                      overdensity: Any = 200, 
                      grid: bool = False,   ) -> Any:
         r"""
-        Calculate the halo bias function.
+        Returns the halo bias function value for a halo of mass :math:`m` at redshift :math:`z`. 
+
+        Parameters
+        ----------
+        m: array_like
+        z: array_like, default = 0
+        overdensity: float, default = 200
+        grid: bool, default = False
+            If true, evaluate the function on a grid of input arrays. Otherwise, inputs must be broadcastable.
+
+        Returns
+        -------
+        res: array_like 
+        
         """
 
         if self._model.halo_bias is None:
@@ -560,7 +931,19 @@ class Cosmology:
                        exact: bool = False, 
                        **kwargs,        ) -> Any:
         r"""
-        Calculate the collapse radius of a halo at redshift z.
+        Calculate the collapse radius of a halo at redshift :math:`z`.
+
+        Parameters
+        ----------
+        z: array_like
+        exact: bool, default = False
+        **kwargs: Any
+            Other keyword arguments are passed to the solver `scipy.optimize.brentq`
+
+        Returns
+        -------
+        res: array_like 
+
         """
 
         lnra, lnrb = np.log(self.settings.rInterpMin), np.log(self.settings.rInterpMax)
@@ -584,9 +967,20 @@ class Cosmology:
                          r: Any, 
                          exact: bool = False, 
                          **kwargs,      ) -> Any:
-        
         r"""
-        Calculate the collapse redshift of a halo of radius r.
+        Calculate the collapse redshift of a halo of radius :math:`r`.
+
+        Parameters
+        ----------
+        r: array_like
+        exact: bool, default = False
+        **kwargs: Any
+            Other keyword arguments are passed to the solver `scipy.optimize.brentq`
+
+        Returns
+        -------
+        res: array_like 
+
         """
 
         # cost function: function to find root

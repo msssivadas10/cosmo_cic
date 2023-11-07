@@ -1,34 +1,28 @@
 #!/usr/bin/python3
+r"""
+
+Utilities for count-in-cells measurement on a general N-dimensional point data, with support 
+for patch-wise measurement for later re-samplings and parellel processing using MPI. 
+
+Available methods:
+
+- Count-in-cells using rectangular cells (in any dimensions), `countObjectsRectangularCell`.
+- Complete count-in-cells workflow with rectangular cells, `cicRectangularCell`.
+
+"""
 
 import os, time
 import logging
 import numpy as np, pandas as pd
 from scipy.stats import binned_statistic_dd
-from collections import namedtuple
 from typing import Any, TypeVar 
-from .utils import MeasurementError, Box, CountResult
+from .utils import MeasurementError, Box, CountResult, get_parellel_process_info
 
 Box_like = TypeVar('Box_like', Box, list[float])
-_ParalellProcessInfo = namedtuple('_ParalellProcessInfo', ['comm', 'rank', 'size'])
-
-
-def _get_parellel_process_info(use_mpi: bool = True) -> _ParalellProcessInfo:
-     r"""
-     Get the parellel process communicator, rank and size, if mpi is enabled.
-     """
-     if not use_mpi: return _ParalellProcessInfo(None, 0, 1)
-     try: 
-         from mpi4py import MPI
-         comm = MPI.COMM_WORLD
-         return _ParalellProcessInfo(comm, comm.rank, comm.size)
-     except ModuleNotFoundError: 
-         logging.warning( "module 'mpi4py' is not found, execution will be in serail mode" )
-         return _ParalellProcessInfo(None, 0, 1)
-
 
 def raiseError(msg :str):
     r"""
-    Raise a `CountingError` exception, and log the message.
+    Raise a `MeasurementError` exception, and log the message.
     """
     logging.error( msg )
     raise MeasurementError( msg )
@@ -257,7 +251,8 @@ def countObjectsRectangularCell(path: str,
     """
 
     # pareller processing set-up
-    comm, RANK, SIZE = _get_parellel_process_info(use_mpi)
+    comm, RANK, SIZE, _err = get_parellel_process_info(use_mpi)
+    if _err: logging.warning( "module 'mpi4py' is not found, execution will be in serail mode" )
 
     if use_masks is None: use_masks = []
     if data_filters is None: data_filters = []
@@ -430,7 +425,7 @@ def prepareRegion(output_path: str,
         raiseError( f"error converting bad region to 'Box': {_e}" )
     
     for bad_region in bad_regions:
-        if not bad_region.samedim( region ):
+        if not bad_region.samedim( region ): 
             raiseError( "dimension mismatch between one bad region and region" )
 
     # correcting the patchsizes to be exacly equal to a nearest multiple of pixsize
@@ -465,17 +460,14 @@ def prepareRegion(output_path: str,
             break
 
     patch_count = len( patches )
-    if patch_count == 0: # no patches in this region
-        raiseError( "cannot make patches with given sizes in the region" )
+    if patch_count == 0: raiseError( "cannot make patches with given sizes in the region" )
 
     badpatch_count = patch_count - sum(good_patches)
-    if badpatch_count == patch_count: # all the patches are bad
-        raiseError( "no good patches left in the region :(" )
+    if badpatch_count == patch_count: raiseError( "no good patches left in the region :(" )
 
     logging.info("created %d patches (%d bad patches)", patch_count, badpatch_count)
 
-
-    if _get_parellel_process_info(use_mpi).rank != 0: return # file I/O only at rank 0
+    if get_parellel_process_info(use_mpi).rank != 0: return # file I/O only at rank 0
 
     #
     # saving the results for later use
