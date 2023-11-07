@@ -21,9 +21,21 @@ class MassFunction(ABC):
           z: Any, 
           overdensity: Any, ) -> Any:
         r"""
-        Calculate the mass function.
+        Returns the halo mass--function as function of variance :math:`\sigma`, based on the given 
+        cosmology model.
+
+        Parameters
+        ----------
+        model: Cosmology
+        s: array_like
+        z: array_like
+        overdensity: int
+
+        Returns
+        -------
+        res: array_like
+
         """
-        ...
 
     def __call__(self, 
                  model: object, 
@@ -33,7 +45,24 @@ class MassFunction(ABC):
                  retval: str = 'dndm', 
                  grid: bool = False, ) -> Any:
         r"""
-        Calculate the halo mass-function as function of halo mass.
+        Returns the halo mass-function as function of halo mass, based on the given cosmology model.
+
+        Parameters
+        ----------
+        model: Cosmology
+        m: array_like
+        z: array_like
+        overdensity: float, None
+        retval: str, {`f`, `dndm`, `dndlnm`, `full`}
+            Specify the value to return. `full` returns all the quantities as a `_MassFunctionResult`
+            object. Default is `dndm`.
+        grid: bool, default = False
+            If set true, evaluate the function on a grid of input arrays. Otherwise, they must be broadcastable.
+
+        Returns
+        -------
+        res: array_like, _MassFunctionResult
+
         """
 
         if grid:

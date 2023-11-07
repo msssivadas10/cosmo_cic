@@ -17,7 +17,20 @@ class HaloBias(ABC):
           z: Any, 
           overdensity: Any, ) -> Any:
         r"""
-        Calculate the halo bias function values.
+        Returns the halo bias value as function of :math:`\nu = \delta_c/\sigma`, based on the given 
+        cosmology model.
+
+        Parameters
+        ----------
+        model: Cosmology
+        nu: array_like
+        z: array_like
+        overdensity: int
+
+        Returns
+        -------
+        res: array_like
+
         """
         ...
 
@@ -28,7 +41,21 @@ class HaloBias(ABC):
                  overdensity: Any, 
                  grid: bool = False, ) -> Any:
         r"""
-        Calculate the halo bias function values as function of mass.
+        Returns the halo bias values as function of mass, based on the given cosmology model.
+
+        Parameters
+        ----------
+        model: Cosmology
+        m: array_like
+        z: array_like
+        overdensity: float, None
+        grid: bool, default = False
+            If set true, evaluate the function on a grid of input arrays. Otherwise, they must be broadcastable.
+
+        Returns
+        -------
+        res: array_like
+
         """
 
         if grid:

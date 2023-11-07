@@ -5,8 +5,6 @@ from scipy.interpolate import CubicSpline
 from typing import Any
 from ._base import MassFunction
 
-
-
 builtinMassfunctions = {}
 
 
@@ -25,8 +23,8 @@ class Press74(MassFunction):
         f  = np.sqrt( 2 / np.pi ) * nu * np.exp( -0.5 * nu**2 )
         return f
     
-Press74 = Press74()
-builtinMassfunctions['press74'] = Press74
+press74 = Press74()
+builtinMassfunctions['press74'] = press74
     
 
 class Sheth01(MassFunction):

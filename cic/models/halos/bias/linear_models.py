@@ -1,10 +1,15 @@
 #!/usr/bin/python3
 
+r"""
+
+Some linear halo bias models.
+
+"""
+
 import numpy as np
 from typing import Any
 from ._base import HaloBias
 from ...utils.constants import DELTA_SC
-
 
 
 builtinLinearBiases = {}
