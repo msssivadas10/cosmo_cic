@@ -251,9 +251,8 @@ class Box(Shape):
         >>> b2 = Box.create({'min': [0., 0.], 'max':[1., 1.]})
 
         """
-        
         if isinstance(obj, dict): return cls(**obj)
-        if np.ndim( obj ) == 2 and np.size( obj ) == 2: return cls(*obj)
+        if np.ndim( obj ) == 2 and np.size( obj, 0 ) == 2: return cls(*obj)
         if isinstance( obj, Box ): return cls(obj.min, obj.max)
         raise ShapeError(f"cannot convert object to Box")
     
