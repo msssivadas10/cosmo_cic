@@ -11,55 +11,7 @@ from cic.models.cosmology import plank18
 from cic.models.halo_model import HaloModel
 from test03_cosmo import PlotData, plot
 
-
-# find the n-sigma mass at redshift z 
-def nsigmaMass(n, z, cm):
-    lnr = brentq(lambda lnr, z: cm.peakHeight(np.exp(lnr), z) - n, np.log(1e-03), np.log(1e+03), (z, ))
-    return plank18.lagrangianM(np.exp(lnr))
-
-# integrand for galaxy density
-@plot
-def galaxyDensityIntegrand(hm, z = [0., 2., 5.], start = 6., stop = 20., pts = 31):
-    z = np.asfarray(z)
-    m = np.logspace(start, stop, pts)
-    if np.ndim( z ) >= 1: m = m[:, None]
-    res = PlotData(np.divide( m, [nsigmaMass(5., zi, hm.cosmo) for zi in z] ),
-                   hm.totalCount( m ) * hm.massFunction(m, z, 'dndlnm', False),
-                   xlabel = '$m/m_{5\\sigma}$', ylabel = '$f(m)N(m)\\frac{dn(m)}{dln(m)}$', 
-                   title = 'galaxy density integrand, $f(m) = 1$',
-                   logx = True, logy = True, legend = z.tolist(), legend_title = 'redshift, z',
-                   cm = hm.cosmo, ylim = (1e-08, 1e+06) )
-    return res
-
-# integrand for avg. halo mass
-@plot
-def averageMassIntegrand(hm, z = [0., 2., 5.], start = 6., stop = 20., pts = 31):
-    z = np.asfarray(z)
-    m = np.logspace(start, stop, pts)
-    if np.ndim( z ) >= 1: m = m[:, None]
-    res = PlotData(np.divide( m, [nsigmaMass(5., zi, hm.cosmo) for zi in z] ),
-                   hm.totalCount( m ) * hm.massFunction(m, z, 'dndlnm', False) * m,
-                   xlabel = '$m/m_{5\\sigma}$', ylabel = '$f(m)N(m)\\frac{dn(m)}{dln(m)}$', 
-                   title = 'avg. halo mass integrand, $f(m) = m$',
-                   logx = True, logy = True, legend = z.tolist(), legend_title = 'redshift, z',
-                   cm = hm.cosmo, ylim = (1e-08, 1e+16) )
-    return res
-
-# integrand for effective galaxy bias
-@plot
-def effectiveBiasIntegrand(hm, z = [0., 2., 5.], start = 6., stop = 20., pts = 31):
-    z = np.asfarray(z)
-    m = np.logspace(start, stop, pts)
-    if np.ndim( z ) >= 1: m = m[:, None]
-    res = PlotData(np.divide( m, [nsigmaMass(5., zi, hm.cosmo) for zi in z] ),
-                   hm.totalCount( m ) * hm.massFunction(m, z, 'dndlnm', False) * hm.biasFunction( m, z, False ) ,
-                   xlabel = '$m/m_{5\\sigma}$', ylabel = '$f(m)N(m)\\frac{dn(m)}{dln(m)}$', 
-                   title = 'effective bias integrand, $f(m) = b_h(m)$',
-                   logx = True, logy = True, legend = z.tolist(), legend_title = 'redshift, z',
-                   cm = hm.cosmo, ylim = (1e-08, 1e+06) )
-    return res
-
-
+n = 5
 
 # create interpolation tables
 plank18.createInterpolationTables()
@@ -70,7 +22,46 @@ plank18.normalizePowerSpectrum()
 # test halo model
 hm = HaloModel(plank18, m_min = 1e+08, sigma = 0.2, m_sat = 1e+12, alpha = 1.)
 
-galaxyDensityIntegrand(hm)
-averageMassIntegrand(hm)
-effectiveBiasIntegrand(hm)
+
+# find the n-sigma mass at redshift z 
+@np.vectorize
+def nsigmaMass(z, n, cm):
+    lnr = brentq(lambda lnr, z: cm.peakHeight(np.exp(lnr), z) - n, np.log(1e-03), np.log(1e+03), (z, ))
+    return cm.lagrangianM(np.exp(lnr))
+
+z = np.asfarray([0., 2., 5.])
+m = np.logspace(6., 20., 31)
+if np.ndim( z ) >= 1: m = m[:, None]
+
+
+res1 = hm.totalCount( m ) * hm.massFunction(m, z, 'dndlnm', False)
+
+# integrand for avg. halo mass
+res2 = res1 * m
+
+# integrand for effective galaxy bias
+res3 = res1 * hm.biasFunction( m, z, False ) 
+
+mm = m #/ nsigmaMass(z, n, plank18)
+
+fig, axs = plt.subplots(3, 1, sharex = 1)
+plt.subplots_adjust(hspace=0)
+axs[0].loglog(mm, res1, 's-', ms = 4)
+axs[0].set_ylim((1e-16, 1e+06))
+axs[0].set_ylabel('galaxy density')
+
+axs[1].loglog(mm, res2, 's-', ms = 4)
+axs[1].set_ylim((1e-16, 1e+16))
+axs[1].set_ylabel('avg. halo mass')
+
+axs[2].loglog(mm, res3, 's-', ms = 4)
+axs[2].set_ylim((1e-16, 1e+06))
+axs[2].set_ylabel('effective bias')
+# axs[2].set_xlabel('$m/m_{%g\\sigma}$' % n)
+axs[2].set_xlabel('$m$')
+axs[2].legend(z, title = 'redshift, z:')
+
+plt.show()
+
+
 
