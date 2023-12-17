@@ -1,3 +1,3 @@
 #!/usr/bin/python3
 
-__all__ = [ 'models', 'measure', 'measure2', 'misc' ]
+__all__ = [ 'models2', 'measure2', 'misc' ]

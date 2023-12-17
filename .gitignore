@@ -1,4 +1,5 @@
 # ignore all cache files
+/.vscode
 *.pyc
 test_*.json
 /test_*
