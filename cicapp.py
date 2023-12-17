@@ -60,7 +60,138 @@ from random import choice
 from string import Template
 from argparse import ArgumentParser
 from typing import Any 
-from cic.measure2.counting import cicRectangularCell, get_parellel_process_info
+from cic.measure2.counting import (estimateObjectCount,
+                                   estimateCellQuality,
+                                   prepareRegion, 
+                                   get_parellel_process_info,
+                                   Box_like,
+                                   MeasurementError         )
+
+########################################################################################################
+# CIC workflows
+########################################################################################################
+
+def cicRectangularCell(region: Box_like = None,
+                       patchsize: float | list[float] = None,
+                       pixsize: float | list[float] = None, 
+                       bad_regions: list[Box_like] = [], 
+                       patch_details_path: str = None,
+                       path_r: str = None,
+                       use_masks_r: list[str] = None,
+                       data_filters_r: list[str] = None,
+                       expressions_r: list[str] = None,
+                       coord_r: list[str] = None,
+                       extra_bins_r: dict = None,
+                       csv_opts_r: dict = None, 
+                       path_o: str = None,
+                       use_masks_o: list[str] = None,
+                       data_filters_o: list[str] = None,
+                       expressions_o: list[str] = None,
+                       coord_o: list[str] = None,
+                       extra_bins_o: dict = None,
+                       csv_opts_o: dict = None, 
+                       output_path: str = None, 
+                       skip_cell_prepartion: bool = False, 
+                       stop_after_cell_preparation: bool = False, 
+                       use_mpi: bool = True,                    ) -> None:
+    r"""
+    Complete workflow of rectangular cell counting. Given a rectangular region and a other details, 
+    this will do the following steps:
+    
+    1. Sub-divide the region into sub-regions (patches) and cells of given size.
+    2. Calculate the quality of these cells using random points and masks.
+    3. Count the numebr of objects in each of these cells.
+
+    Results of these steps will be saved to files specied. 
+
+    Parameters
+    ----------
+    region: Box_like
+        Region used in the counting process. Must be a `Box` object or a list of shape (2, N), where N 
+        is the number of dimensions of the counting space. This list has the format `[x_min, x_max]`, 
+        where `x_min` is the minimum and `x_max` are the maximum coordinates.
+    patchsize: float, list of float
+        Sizes of the sub-regions. If no sub-divisions are needed, set this to the region size. 
+    pixsize: float, list of float
+        Sizes of the cells. Must be less than patchsize of that direction. 
+    bad_regions: list of Box_like
+    patch_details_path: str
+        Path to file containing (or to write) the patch and cell details.
+    path_r, path_o: str
+        Path to the file containing random (with subscript `r`) and object (`o`) dataset. 
+    use_masks_r, use_masks_o: str
+        List of masks to use. Each entry must be a feture/column name in the corresponding dataset.   
+    data_filters_r, data_filters_o: str
+        List of data filtering expressions to apply on each dataset.
+    expressions_r, expressions_o: str
+        List of additional expressions to apply on each dataset. These are evaluated before counting.
+    extra_bins_r, extra_bins_o: dict
+        Additional bins to use, as a dict.
+    coord_r, coord_o: str
+        List of coordinate feature names in the datasets. This should have the same order as in the 
+        region, patchsize etc specification.
+    csv_opts_r, csv_opts_o: dict
+        Additional csv reading options to use. 
+    output_path: str
+        Path to the file, to which output is written.
+    skip_cell_prepartion: bool, default = False
+        If set true, skip the cell preparation steps 1 and 2 and move directly to 3. Used when the cell 
+        details are already available.
+    stop_after_cell_preparation: bool, default = False
+        If set true, stop after cell preparation steps, ignoring the step 3.
+    use_mpi: bool, optional
+        Use MPI for multiprocessing (default = True)
+    
+        
+    """
+
+    if not skip_cell_prepartion:
+
+        # checking values
+        if region is None            : raise MeasurementError("region is required for cell prepation")
+        if patchsize is None         : raise MeasurementError("patchsize is required for cell prepation")
+        if pixsize is None           : raise MeasurementError("pixsize is required for cell prepation")
+        if path_r is None            : raise MeasurementError("path to random catalog 'path_r' is required for cell prepartion")
+        if patch_details_path is None: raise MeasurementError("filename 'patch_details_path' is required for cell prepartion")
+
+        # step 1: prepare the region and patches
+        prepareRegion(patch_details_path, region, patchsize, pixsize, bad_regions, use_mpi)
+
+        # step 2: estimate cell quality
+        estimateCellQuality(path               = path_r, 
+                            patch_details_path = patch_details_path, 
+                            output_path        = patch_details_path, 
+                            use_masks          = use_masks_r, 
+                            data_filters       = data_filters_r, 
+                            expressions        = expressions_r, 
+                            coord              = coord_r, 
+                            extra_bins         = extra_bins_r,
+                            csv_opts           = csv_opts_r, 
+                            use_mpi            = use_mpi,  )
+        
+        if stop_after_cell_preparation: return logging.info("stopping afetr cell preparation :)")
+    else: logging.info("skipping cell preparation step :)")
+
+    # checking values
+    if path_o is None            : raise MeasurementError("path to object catalog 'path_o' is required for couting")
+    if patch_details_path is None: raise MeasurementError("filename 'patch_details_path' is required for counting")
+    if output_path is None       : raise MeasurementError("filename 'output_path' is required for counting")
+
+    # step 3: estimate counts
+    estimateObjectCount(path                  = path_o,
+                        patch_details_path    = patch_details_path,
+                        output_path           = output_path,
+                        include_patch_details = False,
+                        use_masks             = use_masks_o,
+                        data_filters          = data_filters_o,
+                        expressions           = expressions_o,
+                        coord                 = coord_o,
+                        extra_bins            = extra_bins_o,
+                        csv_opts              = csv_opts_o, 
+                        use_mpi               = use_mpi,  )
+    return
+
+
 
 def randstr(__length: int) -> str:
     r"""
