@@ -93,9 +93,9 @@ def matterPowerspec(cm, z = [0., 2., 5.], start = -3., stop = 3., pts = 21):
 @plot
 def matterVariance(cm, z = [0., 2., 5.], start = -2., stop = 2., pts = 21):
     r = np.logspace(start, stop, pts) 
-    pd = PlotData(r, cm.matterVariance(r, z, grid = True), 
+    pd = PlotData(r, cm.matterVariance(r, z, nu = 1, grid = True), 
                   xlabel = 'r', ylabel = '$\\sigma^2$(k, z)', title = 'variance', 
-                  logx = True, logy = True, legend = z, legend_title = 'redshift, z',
+                  logx = True, logy = 0, legend = z, legend_title = 'redshift, z',
                   cm = cm)
     return pd
 
@@ -167,4 +167,4 @@ def testAll(cm, what = 'pvmbgdu'):
 
 if __name__ == '__main__':
     cm = plank18 # testCosmology()
-    testAll(cm)
+    testAll(cm, 'v')
