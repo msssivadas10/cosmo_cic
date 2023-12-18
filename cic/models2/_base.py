@@ -1040,7 +1040,7 @@ class Cosmology:
     def haloBias(self, 
                  m: Any, 
                  z: Any = 0., 
-                 overdensity: float | None = None, ) -> Any:
+                 overdensity: float | None = 200, ) -> Any:
         r"""
         Returns the halo bias function value for a halo of mass m (Msun/h) at redshift z. 
 
@@ -1137,7 +1137,8 @@ class Cosmology:
                 density = density * overdensity
             res = res * density
             # truncating at virial radius
-            res = np.where( np.less_equal(arg, 1.), res, 0. )
+            if trancate:
+                res = np.where( np.less_equal(arg, 1.), res, 0. )
         return res
     
 #########################################################################################
