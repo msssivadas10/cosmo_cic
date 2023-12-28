@@ -3,9 +3,10 @@
 import numpy as np
 from scipy.integrate import simpson
 from scipy.optimize import brentq
+from scipy.special import hyp0f1
 from dataclasses import dataclass
 from typing import Any
-from .utils import ModelDatabase
+from .utils import ModelDatabase, IntegrationRule, DefiniteUnweightedCC
 from .constants import SPEED_OF_LIGHT_KMPS, RHO_CRIT0_ASTRO, DELTA_SC, MPC, YEAR                
 
 #########################################################################################
@@ -25,18 +26,26 @@ class _CosmologySettings:
     z_inf: float = 1e+08
     # number of points to use for redshift integration
     z_pts: int   = 1001
+    #--------NOTE: to remove----------------------------------------------
     # zero value for k integration (variance and correlation calculations)
     k_zero: float = 1e-04
     # infinity value for k integration
     k_inf: float = 1e+04 
     # number of points for k integration
     k_pts: float = 1001
+    #--------------------------------------------------------------------
     # relative step-size for finite difference derivative calculation
     relstep: float = 0.01
     # step-size for finite difference derivative calculation
     absstep: float = 0.01
     # relative tolerance for convergence check
     reltol: float = 1e-06
+    # redshift integration plan (points in log(z+1) space) NOTE: not used currently
+    z_plan: IntegrationRule = DefiniteUnweightedCC(a = 0., b = 18., pts = 1001) # 0. to 1e+08 approx.
+    # k integration plan (points in log(k) space)
+    k_plan: IntegrationRule = (DefiniteUnweightedCC(a = -14., b = -7., pts = 64 ) + # 1e-06 to 1e-03, approx. 
+                               DefiniteUnweightedCC(a =  -7., b =  7., pts = 512) + # 1e-03 to 1e+03, approx. 
+                               DefiniteUnweightedCC(a =   7., b = 14., pts = 64 ) ) # 1e+03 to 1e+06, approx. 
 
 class Cosmology:
     r"""
@@ -206,10 +215,10 @@ class Cosmology:
             # other constant w values:
             p = (3*self.w0 + 3)
             if deriv:
-                return p * np.add(z, 1)**(p-1)
-            return np.add(z, 1)**p
+                return p * np.add(z, 1.)**(p-1)
+            return np.add(z, 1.)**p
         # general w0-wa model:
-        zp1 = np.add(z, 1)
+        zp1 = np.add(z, 1.)
         p   = 3*( self.w0 + self.wa * (zp1 - 1) / zp1 ) + 3
         res = zp1**p
         if deriv:
@@ -291,7 +300,7 @@ class Cosmology:
         Cosmology.lnE2
         
         """
-        lnzp1 = np.log( np.add(z, 1) )
+        lnzp1 = np.log( np.add(z, 1.) )
         res   = np.exp( 0.5 * self.lnE2(lnzp1, deriv = 0) )
         if deriv:
             res *= 0.5 * self.lnE2(lnzp1, deriv = 1) * np.exp(-lnzp1)
@@ -315,7 +324,7 @@ class Cosmology:
             Matter density in unit of critical density.
 
         """
-        lnzp1 = np.log( np.add(z, 1) )
+        lnzp1 = np.log( np.add(z, 1.) )
         res   = self.Om0 * np.exp( 3*lnzp1 - self.lnE2(lnzp1, deriv = 0) )
         if deriv:
             res *= (3. - self.lnE2(lnzp1, deriv = 1)) * np.exp(-lnzp1)
@@ -339,7 +348,7 @@ class Cosmology:
             Dark-energy density in unit of critical density.
 
         """
-        lnzp1 = np.log( np.add(z, 1) )
+        lnzp1 = np.log( np.add(z, 1.) )
         fde   = self.darkEnergyModel(z, deriv = 0)
         res   = self.Ode0 * fde * np.exp( -self.lnE2(lnzp1, deriv = 0) )
         if deriv:
@@ -399,7 +408,7 @@ class Cosmology:
             res = np.exp(lnzp1 - 0.5*self.lnE2(lnzp1, deriv = 0))
             return res
 
-        zp1 = np.add(z, 1)
+        zp1 = np.add(z, 1.)
         if deriv:
             return FACT * func( np.log(zp1) ) / zp1
         # generating integration points
@@ -471,8 +480,8 @@ class Cosmology:
         """
         res = self.comovingCoordinate(z, deriv = 0)
         if deriv:
-            return res + self.comovingCoordinate(z, deriv = 1) * np.add(z, 1)
-        return res * np.add(z, 1)
+            return res + self.comovingCoordinate(z, deriv = 1) * np.add(z, 1.)
+        return res * np.add(z, 1.)
 
     def angularDiameterDistance(self, 
                                 z: Any,
@@ -496,9 +505,9 @@ class Cosmology:
         Cosmology.comovingDistance
         
         """ 
-        res = self.comovingCoordinate(z, deriv = 0) / np.add(z, 1)
+        res = self.comovingCoordinate(z, deriv = 0) / np.add(z, 1.)
         if deriv:
-            return (self.comovingCoordinate(z, deriv = 1) - res) / np.add(z, 1)
+            return (self.comovingCoordinate(z, deriv = 1) - res) / np.add(z, 1.)
         return res
     
     def angularSize(self, 
@@ -556,7 +565,7 @@ class Cosmology:
             res = np.exp( -0.5*self.lnE2(lnzp1, deriv = 0) )
             return res
         
-        zp1 = np.add(z, 1)
+        zp1 = np.add(z, 1.)
         if deriv:
             return -func( np.log(zp1) ) / zp1
         # generating integration points
@@ -585,7 +594,7 @@ class Cosmology:
 
         """
         HT  = 1e-14 * MPC / YEAR / self.h # present hubble time in Gyr
-        zp1 = np.add(z, 1)
+        zp1 = np.add(z, 1.)
         res = np.exp( self.lnE2(np.log(zp1), deriv = 0) )
         if deriv:
             return -HT * self.E(z, deriv = 1) / res
@@ -640,7 +649,7 @@ class Cosmology:
             return res
         
         # generating integration points
-        lnzp1 = np.log(np.add(z, 1))
+        lnzp1 = np.log(np.add(z, 1.))
         inf, pts      = self.settings.z_inf, self.settings.z_pts
         lnxp1, dlnxp1 = np.linspace(lnzp1, np.log(inf+1), pts, retstep = True, axis = -1)
         # log-space integration
@@ -648,12 +657,37 @@ class Cosmology:
         if deriv: # growth rate: f(z)
             res = func(lnzp1) / res - 0.5*self.lnE2(lnzp1, deriv = 1)
         else: # growth factor: D_+(z)
-            res = 2.5 * self.Om0 * np.exp( 0.5*self.lnE2(lnzp1, deriv = 0) ) * res
+            res = np.exp( 0.5*self.lnE2(lnzp1, deriv = 0) ) * res # * 2.5 * self.Om0
         return res
 
     ###########################################################################################################
     #                                  Matter power spectrum calculations                                     #
     ###########################################################################################################
+
+    def matterTransferFunction(self, 
+                               k: Any, 
+                               z: Any = 0., 
+                               deriv: int = 0, ) -> Any:
+        r"""
+        Return the linear matter transfer function for wavenumber k and redshift z.
+
+        Parameters
+        ----------
+        k: array_like
+        z: array_like
+        deriv: int, default = 0
+            If non-zero, return the first log derivative of the function.
+
+        Returns
+        -------
+        res: array_like
+            Matter transfer function.
+
+        """
+        if self.power_spectrum is None:
+            raise CosmologyError("no power spectrum model is linked with this model")
+        res = self.power_spectrum.call(self, k, z, deriv)
+        return res
 
     def matterPowerSpectrum(self, 
                             k: Any, 
@@ -684,9 +718,10 @@ class Cosmology:
         if self.power_spectrum is None:
             raise CosmologyError("no power spectrum model is linked with this model")
         
-        k = np.asfarray(k)
+        k   = np.asfarray(k)
+        res = self.matterTransferFunction(k, z, deriv)
         if not deriv:
-            res = self.power_spectrum(self, k, z)**2 * k**self.ns
+            res = res**2 * k**self.ns
             # power spectrum is normalised in three ways: 
             if normalize is not None:
                 if normalize: # normalise the value at r = 8 to sigma8
@@ -697,19 +732,9 @@ class Cosmology:
             # or, no normalisation (NOTE: used in variance calculations)
             return res
         
-        # effective index calculation using finite difference
-        delta = self.settings.relstep * k
-        k     = k - 2*delta
-        res1, res2 = 0., 0.
-        for weight in (1., -8., 0., 8., -1.):
-            if not weight: 
-                k += delta
-                continue
-            res1 += weight * np.log(self.matterPowerSpectrum(k, z, 0, normalize, nonlinear))
-            if abs(weight) > 2.:
-                res2 += 0.75 * weight * np.log(k)
-            k += delta
-        return res1 / res2
+        # effective index (1-st log derivative) calculation
+        res = self.ns + 2.*res
+        return res
     
     def matterCorrelation(self, 
                           r: Any, 
@@ -742,17 +767,22 @@ class Cosmology:
         
         if average: # average correlation function
             # generate integration points in log space
-            lnka, lnkb = np.log(self.settings.k_zero), np.log(self.settings.k_inf)
-            k, dlnk    = np.linspace(lnka, lnkb, self.settings.k_pts, retstep = True) # k is log(k)
+            # lnka, lnkb = np.log(self.settings.k_zero), np.log(self.settings.k_inf)
+            # pts, dlnk  = np.linspace(lnka, lnkb, self.settings.k_pts, retstep = True) # k is log(k)
+            pts = self.settings.k_plan.nodes
+            wts = self.settings.k_plan.weights
             # reshaping k array to work with array inputs
-            k  = np.reshape(k, np.shape(k) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z))))
-            k  = np.exp(k)
+            shape = np.shape(pts) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z)))
+            pts = np.reshape(pts, shape)
+            wts = np.reshape(wts, shape)
+            # correlation 
+            k  = np.exp(pts)
             r  = np.asfarray(r)
             kr = k*r
-            # correlation 
             res = self.matterPowerSpectrum(k, z, deriv = 0, normalize = None, nonlinear = nonlinear) * k**3
-            res = 3.*( np.sin(kr) - kr * np.cos(kr) ) / kr**3 * res
-            res = simpson(res, dx = dlnk, axis = 0)
+            # hypergeometric function, 0F1(2.5, -0.25*x**2) = 3*( sin(x) - x * cos(x) ) / x**3
+            res = hyp0f1(2.5, -0.25*kr**2) * res 
+            res = np.sum( res*wts, axis = 0 )
         else: # correlation function
             reltol   = self.settings.reltol
             pts      = self.settings.k_pts
@@ -784,7 +814,7 @@ class Cosmology:
     def matterVariance(self, 
                        r: Any, 
                        z: Any = 0., 
-                       deriv: int = 0, 
+                       deriv: int = 0,
                        normalize: bool = True, 
                        nonlinear: bool = False, ) -> Any:
         r"""
@@ -805,48 +835,56 @@ class Cosmology:
         -------
         res: array_like
             Matter variance.
-        
         """
+        j = 0 # TODO: as input argument
         if self.power_spectrum is None:
             raise CosmologyError("no power spectrum model is linked with this model")
         if self.window_function is None:
             raise CosmologyError("no window function model is linked with this model")
+        if not isinstance(j, int) or j < 0:
+            raise CosmologyError("j must be zero or positive integer")
         
         # generate integration points in log space
-        lnka, lnkb = np.log(self.settings.k_zero), np.log(self.settings.k_inf)
-        k, dlnk    = np.linspace(lnka, lnkb, self.settings.k_pts, retstep = True) # k is log(k)
+        # lnka, lnkb = np.log(self.settings.k_zero), np.log(self.settings.k_inf)
+        # pts, dlnk  = np.linspace(lnka, lnkb, self.settings.k_pts, retstep = True) # k is log(k)
+        pts = self.settings.k_plan.nodes
+        wts = self.settings.k_plan.weights
         # reshaping k array to work with array inputs
-        k  = np.reshape(k, np.shape(k) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z))))
-        k  = np.exp(k)
+        shape = np.shape(pts) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z)))
+        pts = np.reshape(pts, shape)
+        wts = np.reshape(wts, shape)
+
+        # normalization constant
+        NORM = self._POWERSPECTRUM_NORM / (2*np.pi**2)
+        if normalize:
+            NORM *= self.sigma8**2
+
+        k  = np.exp(pts)
         r  = np.asfarray(r)
         kr = k*r
-        
-        # variance 
-        f1 = self.matterPowerSpectrum(k, z, deriv = 0, normalize = None, nonlinear = nonlinear) * k**3
+        # variance
+        f1 = NORM * self.matterPowerSpectrum(k, z, deriv = 0, normalize = None, nonlinear = nonlinear) * k**(3 + j)
         f3 = self.window_function(kr, deriv = 0)
-        f2 = 2*f1*f3
-        res1 = simpson(f2*f3, dx = dlnk, axis = 0)
+        f2 = f1*f3
+        res1 = np.sum( f2*f3*wts, axis = 0 )
         if deriv == 0:
-            NORM = self._POWERSPECTRUM_NORM / (2*np.pi**2)
-            if normalize:
-                NORM *= self.sigma8**2
-            return NORM * res1
-        
-        # first log derivative
-        res1 = 2*r / res1
-        f3   = self.window_function(kr, deriv = 1) * k
-        res2 = simpson(f2*f3, dx = dlnk, axis = 0) * res1
-        if deriv == 1: # derivatives need no normalisation
-            return res2
-        
-        # second log derivative
-        f2   = f2 * k**2 * self.window_function(kr, deriv = 2) + 2*f1*f3**2
-        res2 = simpson(f2, dx = dlnk, axis = 0) * res1 * r + res2 * (1 - res2)
+            return res1
+        # first derivative
+        f3   = 2 * self.window_function(kr, deriv = 1) * k
+        res2 = np.sum( f2*f3*wts, axis = 0 )
+        if deriv == 1:
+            return r / res1 * res2
+        # second derivative
+        res3 = 0.5*f1 * f3**2 + 2*f2 * self.window_function(kr, deriv = 2) * k**2
+        res3 = np.sum( res3*wts, axis = 0 )
         if deriv == 2:
-            return res2
-
-        raise ValueError(f"invalid value for argument 'deriv': {deriv}")      
-    
+            res1 = r / res1
+            res2 = res1 * res2
+            res2 = res2 * (1. - res2)
+            return res2 + res1 * res3 * r
+        
+        raise ValueError(f"invalid value for argument 'deriv': {deriv}")
+      
     def nu(self, 
            r: Any, 
            z: Any = 0., 
@@ -1025,7 +1063,7 @@ class Cosmology:
         f = self.mass_function.call(self, s, z, overdensity)
         if retval in ['f', 'fsigma']:
             return f
-        density  = self.Om0 * RHO_CRIT0_ASTRO * np.add(z, 1)**3
+        density  = self.Om0 * RHO_CRIT0_ASTRO * np.add(z, 1.)**3
         dlnsdlnm = self.matterVariance(r, z, deriv = 1, normalize = True, nonlinear = False) / 6.
         # number density
         dndm = f * np.abs(dlnsdlnm) * density / m**2
@@ -1123,7 +1161,7 @@ class Cosmology:
             raise CosmologyError("no halo profile model is linked with this model")
         # reshape inputs to work with arrays
         m   = np.asfarray(m)
-        zp1 = np.add(z, 1)
+        zp1 = np.add(z, 1.)
         # concentration
         c = self.haloConcentration(m, z, overdensity)
         # virial radius
@@ -1156,7 +1194,9 @@ class PowerSpectrum:
     def call(self, 
              model: Cosmology, 
              k: Any, 
-             z: Any,      ) -> Any:
+             z: Any,      
+             deriv: int = 0, 
+             **kwargs: Any,     ) -> Any:
         r"""
         Returns the value of linear transfer function for wavenumber k (in Mpc/h) at 
         redshift z.
@@ -1167,6 +1207,8 @@ class PowerSpectrum:
             Cosmology model to use.
         k: array_like
         z: array_like
+        deriv: int, default = 0
+            If non-zero, return the first log derivative w.r.to k, otherwise the function.
 
         Returns
         -------
@@ -1174,11 +1216,13 @@ class PowerSpectrum:
 
         """
         raise NotImplementedError()
-
+    
     def __call__(self, 
                  model: Cosmology, 
                  k: Any, 
-                 z: Any,      ) -> Any:
+                 z: Any,      
+                 deriv: int = 0, 
+                 **kwargs: Any, ) -> Any:
         r"""
         Returns the value of linear transfer function for wavenumber k (in Mpc/h) at 
         redshift z.
@@ -1189,13 +1233,15 @@ class PowerSpectrum:
             Cosmology model to use.
         k: array_like
         z: array_like
+        deriv: int, default = 0
+            If non-zero, return the first log derivative w.r.to k, otherwise the function.
 
         Returns
         -------
         res: array_like
 
         """
-        return self.call(model, k, z)
+        return self.call(model, k, z, deriv, **kwargs)
 
 PowerSpectrum.available = ModelDatabase('power_spectra', PowerSpectrum)
         
@@ -1482,3 +1528,47 @@ class HaloDensityProfile:
         return self.call(arg, c, fourier_transform)
     
 HaloDensityProfile.available = ModelDatabase('halo_profiles', HaloDensityProfile)
+
+#########################################################################################
+#                               Built-in models + constructor                           #
+#########################################################################################
+
+def cosmology(name: str, *args, **kwargs) -> Cosmology:
+    r"""
+    Return a cosmology model.
+
+    Parameters
+    ----------
+    name: str
+        If a predefined name, return that cosmology.Otherwise, create a cosmology with 
+        this name.
+    *args, **kwargs: Any
+        Other arguments are passed to `Cosmology` object constructor.
+
+    Returns
+    -------
+    cm: Cosmology
+
+    See Also
+    --------
+    Cosmology
+
+    """
+    if name is not None and not isinstance(name, str):
+        raise TypeError("name must be an 'str' or None")
+    # cosmology with parameters from Plank et al (2018)
+    if name == 'plank18':
+        return Cosmology(h = 0.6790, Om0 = 0.3065, Ob0 = 0.0483, Ode0 = 0.6935, sigma8 = 0.8154, ns = 0.9681, Tcmb0 = 2.7255, name = 'plank18')
+    # cosmology with parameters from Plank et al (2015)
+    if name == 'plank15':
+        return Cosmology(h = 0.6736, Om0 = 0.3153, Ob0 = 0.0493, Ode0 = 0.6947, sigma8 = 0.8111, ns = 0.9649, Tcmb0 = 2.7255, name = 'plank15')
+    # cosmology with parameters from WMAP survay
+    if name == 'wmap08':
+        return Cosmology(h = 0.719, Om0 = 0.2581, Ob0 = 0.0441, Ode0 = 0.742, sigma8 = 0.796, ns = 0.963, Tcmb0 = 2.7255, name = 'wmap08')
+    # cosmology for millanium simulation
+    if name == 'millanium':
+        return Cosmology(h = 0.73, Om0 = 0.25, Ob0 = 0.045, sigma8 = 0.9, ns = 1.0, Tcmb0 = 2.7255, name = 'millanium')
+    if not args and not kwargs:
+        raise KeyError(f"model not available: '{name}'")
+    # create a new model with given name
+    return Cosmology(*args, **kwargs, name = name)
