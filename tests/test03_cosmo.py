@@ -8,10 +8,84 @@ import numpy as np
 import dataclasses
 import datetime, time, os.path as p
 import matplotlib.pyplot as plt
+from typing import Any, Callable
 from matplotlib.backends.backend_pdf import PdfPages
-from scipy.special import erf 
-from cic.models2 import cosmology
+from scipy.special import erf
+from cic.models2 import cosmology, Cosmology
+from cic.models2.specials import FlatLambdaCDM
 from cic.models2.hod import HaloModel
+
+# save the doculment as a pdf
+def print_report(document: list, path: str, metadata: dict = None):
+    metadata = metadata or {}
+    with PdfPages(path, metadata = metadata) as pdf:
+        for page in document: pdf.savefig(page)
+    return
+
+# estimate execution time
+def estimate_exectime(func, *args, **kwargs):
+    __timestamp = time.time_ns()
+    res = func(*args, **kwargs) 
+    __timestamp = time.time_ns() - __timestamp
+    return res, [func.__qualname__, __timestamp / 1000]
+
+# return the current time as a datetime object
+def localtime() -> datetime.datetime:
+    t = time.localtime()
+    return datetime.datetime(t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec)
+
+# generate a comparison repport for two functions
+def comparison_test(f1: Callable, # functions to compare: should have similar call signature
+                    f2: Callable,
+                    x: Any,       # first argument to the function (used to compare)
+                    args: tuple = (),          # other arguments 
+                    title: str | None = None,  # test report page title
+                    text: str | None = None,   # extra text
+                    xlabel: str | None = None, # axis labels
+                    ylabel: str | None = None, 
+                    label1: str | None = None, # data labels
+                    label2: str | None = None,
+                    plot_scale: str | None = None, # plot scale: loglog, semilogx or semilogy
+                    error_limit: float | None = None, # error axis upper limit 
+                    _scale: float = 1.0, ) -> Any:
+    ##################################################################################################
+    #                                 step 1: comparing functions                                    #           
+    ##################################################################################################
+    y1, y2 = f1(x, *args), f2(x, *args)
+    relerr = np.abs(y2 - y1) / np.where( y1 == 0, 1., np.abs(y1) ) # relative error
+    arg_maxerr = np.argmax(relerr)
+    maxerr     = relerr[arg_maxerr]
+    x_maxerr   = x[arg_maxerr] 
+    ##################################################################################################
+    #                                 step 2: generating report                                      #       
+    ##################################################################################################
+    page = plt.figure(figsize = (_scale*8.3, _scale*11.7)) # a4 size 
+    # title
+    ax = page.add_axes([0.12, 0.9, 0.8, 0.02])
+    ax.axis('off')
+    ax.set_title(title, fontdict = {'fontsize': 14, 'fontweight': 'bold',})
+    ax.text(0.5,  0.0, "%s $vs.$ %s" % (f1.__qualname__, f2.__qualname__), fontsize = 10, horizontalalignment='center', verticalalignment='top', transform=ax.transAxes) 
+    ax.text(0.5, -2.0, text, fontsize = 10, horizontalalignment='center', verticalalignment='top', transform=ax.transAxes) 
+    # comparison plot
+    ax = page.add_axes([0.12, 0.4, 0.8, 0.35])
+    ax.set_ylabel(ylabel)
+    if   plot_scale == 'loglog'  : ax.loglog()
+    elif plot_scale == 'semilogx': ax.semilogx()
+    elif plot_scale == 'semilogy': ax.semilogy()
+    ax.plot(x, y1, '-', color = '#0055d4', label = label1 or '%s' % f1.__qualname__)
+    ax.plot(x, y2, 'o', color = '#0055d4', label = label2 or '%s' % f2.__qualname__)
+    ax.legend(ncols = 2, bbox_to_anchor = (0, 1, 1, 1), loc = 'lower left', mode = 'expand', alignment = 'left', frameon = False)
+    # rel. error
+    ax = page.add_axes([0.12, 0.3, 0.8, 0.10], sharex = ax)
+    if plot_scale in ( 'semilogx', 'loglog' ): ax.semilogx()
+    ax.plot(x, relerr, 'o-', color = '#0055d4')
+    ax.set(ylim = (-1., error_limit or np.max(relerr) + 1), xlabel = xlabel, ylabel = '$rel. error$')
+    #
+    ax = page.add_axes([0.12, 0.2, 0.8, 0.05], sharex = ax)
+    ax.axis('off')
+    ax.text(0.0, 0.5, "$Max.~relative~error:$ %.3g at %s=%g" % (maxerr, xlabel or 'x', x_maxerr), fontsize = 10, horizontalalignment='left', verticalalignment='center', transform=ax.transAxes)
+    #
+    return page
 
 # test halomodel
 class TestHaloModel(HaloModel):
@@ -38,14 +112,7 @@ class TestHaloModel(HaloModel):
     def satelliteFraction(self, m: float) -> float:
         return ( ( np.subtract(m, self.mcut) ) / self.msat )**self.alpha  
 
-# estimate execution time
-def estimate_exectime(func, *args, **kwargs):
-    __timestamp = time.time_ns()
-    res = func(*args, **kwargs) 
-    __timestamp = time.time_ns() - __timestamp
-    return res, [func.__qualname__, __timestamp / 1000]
-
-class TestPlotGenerator:
+class GeneralTest:
     def __init__(self) -> None:
         # object to store named values with properties
         @dataclasses.dataclass
@@ -99,32 +166,26 @@ class TestPlotGenerator:
     def newFigure(self): 
         return plt.figure(figsize = (8.3, 11.7)) # a4 size
 
-    def createFigures(self, save_to: str, show: bool = False):
-        t = time.localtime()
-        metadata = {'Title': 'Test plots', 
-                    'Author': p.split(__file__)[1].split('.')[0], 
-                    'CreationDate': datetime.datetime(t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec), }
+    def generate_test_report(self) -> list:
         __time = time.time()
         print("Info: starting test. time:", time.asctime())
-        with PdfPages(save_to, metadata = metadata) as pdf:
-            for __name, __value in self.__class__.__dict__.items():
-                if not __name.startswith('figure_'): continue
-                print(f"Info: running '{__name}'...")
-                fig = __value(self)
-                if fig is None: continue
-                pdf.savefig(fig)
-                if show: plt.show()
-            print("Info: running 'execution_time_table'...")
-            while 1:
-                fig = self.execution_time_table()
-                if fig is not None:
-                    pdf.savefig(fig)
-                    continue
-                break
-        print(f"Info: pdf saved to '{save_to}'.")
+        document = []
+        for __name, __value in self.__class__.__dict__.items():
+            if not __name.startswith('figure_'): continue
+            print(f"Info: running '{__name}'...")
+            fig = __value(self)
+            if fig is None: continue
+            document.append(fig)
+        print("Info: running 'execution_time_table'...")
+        while 1:
+            fig = self.execution_time_table()
+            if fig is not None:
+                document.append(fig)
+                continue
+            break
         __time = time.time() - __time
         print(f"Test completed in {__time:.3f} second. time:", time.asctime())
-        return
+        return document
     
     def execution_time_table(self):
         if len(self.exec_time) == 0 or self._first_row >= len(self.exec_time): return 
@@ -657,4 +718,71 @@ class TestPlotGenerator:
         self.exec_time.append([__fname, str(np.shape(x) + (1,)), '%.1f' % __texec])
         return fig
         
-TestPlotGenerator().createFigures('test_output.pdf')
+def _main():  
+    file = p.split(__file__)[1].split('.')[0]
+    ###################################################################################     
+    #            comparison: class FlatLambdaCDM vs class Cosmology                   #
+    ###################################################################################
+    m1 = FlatLambdaCDM(0.7, 0.3, 0.05)
+    m2 = Cosmology(0.7, 0.3, 0.05) # corresponding `Cosmology` instance
+    z  = np.linspace(0, 10, 11)
+    print_report([comparison_test(m1.comovingDistance, m2.comovingDistance, z, (0, ), 
+                                  title = 'Comoving distance (unit: $Mpc/h$)', 
+                                  text = ('$x(a) ~=~ \\frac{c}{H_0} \\int_a^\\infty a^{-2} E^{-1}(a) da$' \
+                                          '$~=~ \\frac{2c a^{1/2}}{H_0\\Omega_m^{1/2}} '                  \
+                                          '_2F_1(\\frac{1}{6}, \\frac{1}{2}, \\frac{7}{6}, '              \
+                                          '-\\frac{\\Omega_{de}}{\\Omega_m}a^3)$; '                       \
+                                          '$a = (z+1)^{-1}$'                                              ), 
+                                  xlabel = '$z$', 
+                                  ylabel = '$x(z)$', 
+                                  label1 = 'Analytic',
+                                  label2 = 'Numerical', ),
+                  comparison_test(m1.time, m2.time, z, (0, ), 
+                                  title = 'Time (unit: $H_0^{-1}$)', 
+                                  text = ('$t(a) ~=~ \\frac{1}{H_0} \\int_0^a a^{-1} E^{-1}(a) da$' \
+                                          '$~=~ \\frac{2 a^{3/2}}{3H_0\\Omega_m^{1/2}} '            \
+                                          '_2F_1(\\frac{1}{2}, \\frac{1}{2}, \\frac{3}{2}, '        \
+                                          '-\\frac{\\Omega_{de}}{\\Omega_m}a^3)$; '                 \
+                                          '$a = (z+1)^{-1}$'                                        ), 
+                                  xlabel = '$z$', 
+                                  ylabel = '$t(z)$', 
+                                  label1 = 'Analytic',
+                                  label2 = 'Numerical', ),
+                 comparison_test(m1.dplus, m2.dplus, z, (0, ), 
+                                  title = 'Linear Growth Factor', 
+                                  text  = ('$d_+(a) ~=~ E(a) \\int_0^a a^{-3} E^{-3}(a) da$'   \
+                                          '$~=~ \\frac{2 a^{5/2} E(a)}{5H_0\\Omega_m^{3/2}}~' \
+                                          '_2F_1(\\frac{5}{6}, \\frac{3}{2}, \\frac{11}{6},'  \
+                                          '-\\frac{\\Omega_{de}}{\\Omega_m}a^3)$; '           \
+                                          '$a = (z+1)^{-1}$'                                  ), 
+                                  xlabel = '$z$', 
+                                  ylabel = '$d_+(z)$', 
+                                  label1 = 'Analytic',
+                                  label2 = 'Numerical', ),
+                  comparison_test(m1.dplus, m2.dplus, z, (1, ), 
+                                  title = 'Linear Growth Rate', 
+                                  text   = '$f(a) ~=~ \\frac{d\\ln d_+}{d\\ln a} $',
+                                  xlabel = '$z$', 
+                                  ylabel = '$f(z)$', 
+                                  label1 = 'Analytic',
+                                  label2 = 'Numerical', ), ], 
+                path = 'test_output_00.pdf', 
+                metadata = {'Title' : 'Comaparison plots', 
+                            'Author': file, 
+                            'CreationDate': localtime(), }, )
+    ###################################################################################     
+    #                                  general test                                   #
+    ###################################################################################
+    print_report(document = GeneralTest().generate_test_report(), 
+                 path = 'test_output_01.pdf', 
+                 metadata = {'Title': 'Test plots', 
+                             'Author': file, 
+                             'CreationDate': localtime(), }, )
+    return 
+
+if __name__ == '__main__':
+    _main()
+
+
+
+

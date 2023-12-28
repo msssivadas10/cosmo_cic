@@ -33,7 +33,7 @@ class Model1(HaloModel):
 		return ( ( np.subtract(m, self.mcut) ) / self.msat )**self.alpha    
 
 
-# cm = cosmology('plank18')
+cm = cosmology('plank18')
 cm = cosmology('test_cosmology', 0.7, 0.3, 0.05, sigma8 = 0.8)
 cm.link(power_spectrum = 'eisenstein98_zb', 
         window         = 'tophat', 
@@ -43,13 +43,30 @@ cm.link(power_spectrum = 'eisenstein98_zb',
         halo_profile   = 'nfw',   )
 # print(cm)
 
-hm = Model1()
-hm.link(cm)
+# hm = Model1()
+# hm.link(cm)
+# from scipy.interpolate import CubicSpline
 plt.figure()
-r = np.logspace(-3, 3, 51)
-m = np.logspace(6, 14, 5)
-z = np.linspace(0, 3, 3)
-y = hm.galaxyPowerSpectrum(r, 0)
+# x = np.linspace(-1, 1, 21)
+# y*x**2 + x - y = 0 --> x = -1 +- sqrt(1 + 4*y**2) / 2*y
+# y = 5*x / (1 - x**2)
+# plt.plot(y, np.ones_like(y), '-s')
+r = np.logspace(-6, 6, 11)
+# m = np.logspace(6, 14, 5)
+# z = np.linspace(0, 3, 3)
+y = cm.matterVariance(r, 0, 0)
+# f = CubicSpline(np.log(r), np.log(y))
+# y = cm.matterVariance(r, 0, 2)
+# y = cm.matterPowerSpectrum(r, 0, 1) 
+plt.loglog()
+# plt.semilogx()
+plt.plot(r, (y), '-s')
+# plt.plot(r, (f(np.log(r), 1)), '-')
+# y = hm.galaxyPowerSpectrum(r, 0)
 # print(np.shape(y), np.shape(r[:,None,None]))
-plt.loglog(r, y.T, '-')
+# plt.loglog(r, y.T, '-')
 plt.show()
+
+# from cic.models2._base import IntegrationPlan
+# p = IntegrationPlan().create([[-1, 0, 5], [0., 1., 11],[1., 1.5, 3]])
+# print(p.generatePoints())
