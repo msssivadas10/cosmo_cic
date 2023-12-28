@@ -2,6 +2,7 @@
 
 import numpy as np
 from scipy.integrate import simpson
+from scipy.special import hyp0f1
 from typing import Any 
 from ._base import Cosmology
 
@@ -331,7 +332,8 @@ class HaloModel:
             kr = k*r
             # correlation
             res = self.galaxyPowerSpectrum(k, z, retval = retval) * k**3
-            res = 3.*( np.sin(kr) - kr * np.cos(kr) ) / kr**3 * res
+            # hypergeometric function, 0F1(2.5, -0.25*x**2) = 3*( sin(x) - x * cos(x) ) / x**3
+            res = hyp0f1(2.5, -0.25*kr**2) * res 
             res = simpson(res, dx = dlnk, axis = 0)
         else: # correlation function
             reltol   = self.cosmology.settings.reltol
