@@ -78,8 +78,6 @@ press74  = Press74()
 sheth01  = Sheth01()
 tinker08 = Tinker08() 
 
-def _init_module() -> None:
-    MassFunction.available.add('press74', press74)
-    MassFunction.available.add('sheth01', sheth01)
-    MassFunction.available.add('tinker08', tinker08)
-    return
+_available_models__ = {'press74' : press74,
+                       'sheth01' : sheth01,
+                       'tinker08': tinker08, }

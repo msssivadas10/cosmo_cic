@@ -44,8 +44,6 @@ class Tinker10(HaloBias):
 cole89 = Cole89()
 tinker10 = Tinker10()
 
-def _init_module() -> None:
-    HaloBias.available.add('cole89', cole89)
-    HaloBias.available.add('tinker10', tinker10)
-    return
+_available_models__ = {'cole89'  : cole89,
+                       'tinker10': tinker10, }
 

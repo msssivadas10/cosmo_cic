@@ -30,7 +30,5 @@ class Zheng07(HaloConcentrationMassRelation):
 # initialising models to be readily used
 zheng07 = Zheng07()
 
-def _init_module() -> None:
-    HaloConcentrationMassRelation.available.add('zheng07', zheng07)
-    return
+_available_models__ = {'zheng07': zheng07, }
 

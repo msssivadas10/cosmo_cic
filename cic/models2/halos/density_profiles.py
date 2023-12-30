@@ -36,7 +36,5 @@ class NFW(HaloDensityProfile):
 # initialising models to be readily used
 nfw = NFW()
 
-def _init_module() -> None:
-    HaloDensityProfile.available.add('nfw', nfw)
-    return
+_available_models__ = {'nfw': nfw, }
 

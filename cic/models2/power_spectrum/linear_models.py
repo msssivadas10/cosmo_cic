@@ -215,10 +215,8 @@ sugiyama95 = Sugiyama95()
 eisenstein98_zb = Eisenstein98_zeroBaryon()
 eisenstein98_nu = Eisenstein98_withNeutrino()
 
-def _init_module() -> None:
-    PowerSpectrum.available.add('powerlaw', powerlaw)
-    PowerSpectrum.available.add('bbks', bbks)
-    PowerSpectrum.available.add('sugiyama95', sugiyama95)
-    PowerSpectrum.available.add('eisenstein98_zb', eisenstein98_zb)
-    PowerSpectrum.available.add('eisenstein98_nu', eisenstein98_nu)
-    return
+_available_models__ = {'powerlaw'       : powerlaw, 
+                       'bbks'           : bbks, 
+                       'sugiyama95'     : sugiyama95, 
+                       'eisenstein98_zb': eisenstein98_zb, 
+                       'eisenstein98_nu': eisenstein98_nu, }

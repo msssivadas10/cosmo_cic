@@ -1,13 +1,12 @@
 #!/usr/bin/python3
 
 import numpy as np
-from scipy.integrate import simpson
 from scipy.optimize import brentq
 from scipy.special import hyp0f1
 from dataclasses import dataclass
 from typing import Any
-from .utils import ModelDatabase, IntegrationRule, DefiniteUnweightedCC
-from .constants import SPEED_OF_LIGHT_KMPS, RHO_CRIT0_ASTRO, DELTA_SC, MPC, YEAR                
+from .utils.objects import ModelDatabase, IntegrationRule, DefiniteUnweightedCC
+from .utils.constants import SPEED_OF_LIGHT_KMPS, RHO_CRIT0_ASTRO, DELTA_SC, MPC, YEAR                
 
 #########################################################################################
 #                                   Cosmology model                                     #
@@ -20,28 +19,18 @@ class CosmologyError(Exception):
 
 @dataclass
 class _CosmologySettings:
-    # zero value for redshift integration
-    z_zero: float = 1e-08
     # inifinity value for redshift integration
     z_inf: float = 1e+08
-    # number of points to use for redshift integration
-    z_pts: int   = 1001
-    #--------NOTE: to remove----------------------------------------------
     # zero value for k integration (variance and correlation calculations)
     k_zero: float = 1e-04
     # infinity value for k integration
     k_inf: float = 1e+04 
     # number of points for k integration
     k_pts: float = 1001
-    #--------------------------------------------------------------------
-    # relative step-size for finite difference derivative calculation
-    relstep: float = 0.01
-    # step-size for finite difference derivative calculation
-    absstep: float = 0.01
     # relative tolerance for convergence check
     reltol: float = 1e-06
     # redshift integration plan (points in log(z+1) space) NOTE: not used currently
-    z_plan: IntegrationRule = DefiniteUnweightedCC(a = 0., b = 18., pts = 1001) # 0. to 1e+08 approx.
+    z_plan: IntegrationRule = DefiniteUnweightedCC(a = -1., b = 1., pts = 128)
     # k integration plan (points in log(k) space)
     k_plan: IntegrationRule = (DefiniteUnweightedCC(a = -14., b = -7., pts = 64 ) + # 1e-06 to 1e-03, approx. 
                                DefiniteUnweightedCC(a =  -7., b =  7., pts = 512) + # 1e-03 to 1e+03, approx. 
@@ -411,10 +400,13 @@ class Cosmology:
         zp1 = np.add(z, 1.)
         if deriv:
             return FACT * func( np.log(zp1) ) / zp1
+        zp1 = 0.5*np.log(zp1)
         # generating integration points
-        lnxp1, dlnxp1 = np.linspace(0., np.log(zp1), self.settings.z_pts, retstep = True, axis = -1)
+        pts, wts = self.settings.z_plan.nodes, self.settings.z_plan.weights
+        shape    = np.shape(pts) + tuple(1 for _ in np.shape(zp1))
+        pts, wts = np.reshape(1 + pts, shape) * zp1, np.reshape(wts, shape) * zp1
         # log-space integration
-        res = simpson(func(lnxp1), dx = dlnxp1, axis = -1)
+        res = np.sum( func( pts ) * wts, axis = 0 )
         return FACT * res
     
     def comovingCoordinate(self, 
@@ -568,11 +560,14 @@ class Cosmology:
         zp1 = np.add(z, 1.)
         if deriv:
             return -func( np.log(zp1) ) / zp1
-        # generating integration points
-        inf, pts      = self.settings.z_inf, self.settings.z_pts
-        lnxp1, dlnxp1 = np.linspace(np.log(zp1), np.log(inf+1), pts, retstep = True, axis = -1)
-        # log-space integration
-        res = simpson(func(lnxp1), dx = dlnxp1, axis = -1)
+        inf = np.log(self.settings.z_inf+1)
+        zp1 = 0.5*( inf - np.log(zp1) )
+        # # generating integration points
+        pts, wts = self.settings.z_plan.nodes, self.settings.z_plan.weights
+        shape    = np.shape(pts) + tuple(1 for _ in np.shape(zp1))
+        pts, wts = np.reshape(pts - 1, shape) * zp1 + inf, np.reshape(wts, shape) * zp1
+        # # log-space integration
+        res = np.sum( func( pts ) * wts, axis = 0 )
         return res
     
     def hubbleTime(self, 
@@ -648,12 +643,15 @@ class Cosmology:
             res = np.exp( 2*lnzp1 - 1.5*self.lnE2(lnzp1, deriv = 0) )
             return res
         
-        # generating integration points
+        inf   = np.log(self.settings.z_inf+1)
         lnzp1 = np.log(np.add(z, 1.))
-        inf, pts      = self.settings.z_inf, self.settings.z_pts
-        lnxp1, dlnxp1 = np.linspace(lnzp1, np.log(inf+1), pts, retstep = True, axis = -1)
-        # log-space integration
-        res   = simpson(func(lnxp1), dx = dlnxp1, axis = -1)
+        # # generating integration points
+        _scale   = 0.5*( inf - lnzp1 )
+        pts, wts = self.settings.z_plan.nodes, self.settings.z_plan.weights
+        shape    = np.shape(pts) + tuple(1 for _ in np.shape(lnzp1))
+        pts, wts = np.reshape(pts - 1, shape) * _scale + inf, np.reshape(wts, shape) * _scale
+        # # log-space integration
+        res = np.sum( func( pts ) * wts, axis = 0 )
         if deriv: # growth rate: f(z)
             res = func(lnzp1) / res - 0.5*self.lnE2(lnzp1, deriv = 1)
         else: # growth factor: D_+(z)
@@ -765,51 +763,24 @@ class Cosmology:
         if self.power_spectrum is None:
             raise CosmologyError("no power spectrum model is linked with this model")
         
+        # generate integration points in log space
+        pts = self.settings.k_plan.nodes
+        wts = self.settings.k_plan.weights
+        # reshaping k array to work with array inputs
+        shape = np.shape(pts) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z)))
+        pts = np.reshape(pts, shape)
+        wts = np.reshape(wts, shape)
+        # correlation 
+        k  = np.exp(pts)
+        r  = np.asfarray(r)
+        kr = k*r
+        res = self.matterPowerSpectrum(k, z, deriv = 0, normalize = normalize, nonlinear = nonlinear) * k**3
         if average: # average correlation function
-            # generate integration points in log space
-            # lnka, lnkb = np.log(self.settings.k_zero), np.log(self.settings.k_inf)
-            # pts, dlnk  = np.linspace(lnka, lnkb, self.settings.k_pts, retstep = True) # k is log(k)
-            pts = self.settings.k_plan.nodes
-            wts = self.settings.k_plan.weights
-            # reshaping k array to work with array inputs
-            shape = np.shape(pts) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z)))
-            pts = np.reshape(pts, shape)
-            wts = np.reshape(wts, shape)
-            # correlation 
-            k  = np.exp(pts)
-            r  = np.asfarray(r)
-            kr = k*r
-            res = self.matterPowerSpectrum(k, z, deriv = 0, normalize = None, nonlinear = nonlinear) * k**3
-            # hypergeometric function, 0F1(2.5, -0.25*x**2) = 3*( sin(x) - x * cos(x) ) / x**3
-            res = hyp0f1(2.5, -0.25*kr**2) * res 
-            res = np.sum( res*wts, axis = 0 )
+            res = res * hyp0f1(2.5, -0.25*kr**2) # 0F1(2.5, -0.25*x**2) = 3*( sin(x) - x * cos(x) ) / x**3
         else: # correlation function
-            reltol   = self.settings.reltol
-            pts      = self.settings.k_pts
-            kra, krb = self.settings.k_zero, 5*np.pi
-            res = 0
-            for i in range(500):
-                # generate integration points in log space
-                kr, dlnkr = np.linspace(np.log(kra), np.log(krb), pts, retstep = True) # kr is log(kr)
-                # reshaping k array to work with array inputs
-                kr = np.reshape(kr, np.shape(kr) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z))))
-                kr = np.exp(kr)
-                r  = np.asfarray(r)
-                k  = kr / r
-                # correlation 
-                delta = self.matterPowerSpectrum(k, z, deriv = 0, normalize = None, nonlinear = nonlinear) * k**3 * np.sinc(kr)
-                delta = simpson(delta, dx = dlnkr, axis = 0)
-                # if the step is much less than the sum, break (TODO: check condition)
-                if np.all( np.abs(np.abs(delta) - reltol * np.abs(res)) < 1e-08 ): break
-                res  += delta 
-                kra, krb = krb, krb + np.pi
-                # after the first step, number of points is 1/10 of the original
-                if not i: pts = pts // 10
-
-        NORM = self._POWERSPECTRUM_NORM / (2*np.pi**2)
-        if normalize:
-            NORM *= self.sigma8**2
-        return NORM * res
+            res = res * np.sinc(kr / np.pi)
+        res = np.sum( res*wts, axis = 0 )
+        return res
     
     def matterVariance(self, 
                        r: Any, 
@@ -845,8 +816,6 @@ class Cosmology:
             raise CosmologyError("j must be zero or positive integer")
         
         # generate integration points in log space
-        # lnka, lnkb = np.log(self.settings.k_zero), np.log(self.settings.k_inf)
-        # pts, dlnk  = np.linspace(lnka, lnkb, self.settings.k_pts, retstep = True) # k is log(k)
         pts = self.settings.k_plan.nodes
         wts = self.settings.k_plan.weights
         # reshaping k array to work with array inputs
@@ -1529,46 +1498,3 @@ class HaloDensityProfile:
     
 HaloDensityProfile.available = ModelDatabase('halo_profiles', HaloDensityProfile)
 
-#########################################################################################
-#                               Built-in models + constructor                           #
-#########################################################################################
-
-def cosmology(name: str, *args, **kwargs) -> Cosmology:
-    r"""
-    Return a cosmology model.
-
-    Parameters
-    ----------
-    name: str
-        If a predefined name, return that cosmology.Otherwise, create a cosmology with 
-        this name.
-    *args, **kwargs: Any
-        Other arguments are passed to `Cosmology` object constructor.
-
-    Returns
-    -------
-    cm: Cosmology
-
-    See Also
-    --------
-    Cosmology
-
-    """
-    if name is not None and not isinstance(name, str):
-        raise TypeError("name must be an 'str' or None")
-    # cosmology with parameters from Plank et al (2018)
-    if name == 'plank18':
-        return Cosmology(h = 0.6790, Om0 = 0.3065, Ob0 = 0.0483, Ode0 = 0.6935, sigma8 = 0.8154, ns = 0.9681, Tcmb0 = 2.7255, name = 'plank18')
-    # cosmology with parameters from Plank et al (2015)
-    if name == 'plank15':
-        return Cosmology(h = 0.6736, Om0 = 0.3153, Ob0 = 0.0493, Ode0 = 0.6947, sigma8 = 0.8111, ns = 0.9649, Tcmb0 = 2.7255, name = 'plank15')
-    # cosmology with parameters from WMAP survay
-    if name == 'wmap08':
-        return Cosmology(h = 0.719, Om0 = 0.2581, Ob0 = 0.0441, Ode0 = 0.742, sigma8 = 0.796, ns = 0.963, Tcmb0 = 2.7255, name = 'wmap08')
-    # cosmology for millanium simulation
-    if name == 'millanium':
-        return Cosmology(h = 0.73, Om0 = 0.25, Ob0 = 0.045, sigma8 = 0.9, ns = 1.0, Tcmb0 = 2.7255, name = 'millanium')
-    if not args and not kwargs:
-        raise KeyError(f"model not available: '{name}'")
-    # create a new model with given name
-    return Cosmology(*args, **kwargs, name = name)

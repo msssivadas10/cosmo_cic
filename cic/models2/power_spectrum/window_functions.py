@@ -46,7 +46,5 @@ class Gaussian(WindowFunction):
 tophat   = SphericalTophat()
 gaussian = Gaussian()
 
-def _init_module() -> None:
-    WindowFunction.available.add('tophat', tophat)
-    WindowFunction.available.add('gaussian', gaussian)
-    return
+_available_models__ = {'tophat'  : tophat,
+                       'gaussian': gaussian, }
