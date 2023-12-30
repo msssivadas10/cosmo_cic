@@ -51,20 +51,39 @@ plt.figure()
 # y*x**2 + x - y = 0 --> x = -1 +- sqrt(1 + 4*y**2) / 2*y
 # y = 5*x / (1 - x**2)
 # plt.plot(y, np.ones_like(y), '-s')
-r = np.logspace(-6, 6, 11)
+r = np.logspace(-3, 2, 11)
 # m = np.logspace(6, 14, 5)
-# z = np.linspace(0, 3, 3)
-y = cm.matterVariance(r, 0, 0)
+# z = np.linspace(0, 10, 11)
+# y = cm.dplus(z)
+y = cm.matterCorrelation(r, 0, 1)
 # f = CubicSpline(np.log(r), np.log(y))
 # y = cm.matterVariance(r, 0, 2)
 # y = cm.matterPowerSpectrum(r, 0, 1) 
 plt.loglog()
 # plt.semilogx()
-plt.plot(r, (y), '-s')
+plt.plot(r, y, '-s')
 # plt.plot(r, (f(np.log(r), 1)), '-')
 # y = hm.galaxyPowerSpectrum(r, 0)
 # print(np.shape(y), np.shape(r[:,None,None]))
 # plt.loglog(r, y.T, '-')
+
+# import numpy.fft as fft
+# from scipy.special import gamma
+# k = 1
+# L = 2*np.log(2/1e-08) # 2ln(2/t0) = L
+# N = 64
+# w = np.arange(N//2 + 1)
+# w = (-1.)**w * gamma(1. + 1j*w*np.pi/L) / gamma(k + 1. - 1j*w*np.pi/L)
+# w = fft.irfft(w)
+# w[0] *= 0.5
+# w[-1] *- 0.5
+# # r = np.logspace(-2, 2, 11)
+# y1 = 2*np.exp(L*(np.arange(N)/N - 0.5))[:,None] / r
+# y1 = y1**2 * cm.matterPowerSpectrum(y1)
+# y1 = np.sum( w[:,None]*y1, axis = 0 ) / r * (2*k+1)# / np.sqrt(2*np.pi)**3
+# plt.plot(r, y1, 'o')
+# # print(y1, y1.shape)
+
 plt.show()
 
 # from cic.models2._base import IntegrationPlan

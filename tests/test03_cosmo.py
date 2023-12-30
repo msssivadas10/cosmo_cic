@@ -12,7 +12,7 @@ from typing import Any, Callable
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.special import erf
 from cic.models2 import cosmology, Cosmology
-from cic.models2.specials import FlatLambdaCDM
+from cic.models2.cosmology import FlatLambdaCDM
 from cic.models2.hod import HaloModel
 
 # save the doculment as a pdf
