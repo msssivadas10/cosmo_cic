@@ -6,6 +6,7 @@ from scipy.special import hyp0f1
 from dataclasses import dataclass
 from typing import Any
 from .utils.objects import ModelDatabase, IntegrationRule, DefiniteUnweightedCC
+from .utils.objects import SphericalHankelTransform # for correlation TODO: check implementation
 from .utils.constants import SPEED_OF_LIGHT_KMPS, RHO_CRIT0_ASTRO, DELTA_SC, MPC, YEAR                
 
 #########################################################################################
@@ -35,6 +36,8 @@ class _CosmologySettings:
     k_plan: IntegrationRule = (DefiniteUnweightedCC(a = -14., b = -7., pts = 64 ) + # 1e-06 to 1e-03, approx. 
                                DefiniteUnweightedCC(a =  -7., b =  7., pts = 512) + # 1e-03 to 1e+03, approx. 
                                DefiniteUnweightedCC(a =   7., b = 14., pts = 64 ) ) # 1e+03 to 1e+06, approx. 
+    # special integration plan for correlation function calculation
+    corr_plan: SphericalHankelTransform = SphericalHankelTransform(L = 38., pts = 128, k_max = 1)
 
 class Cosmology:
     r"""
@@ -745,7 +748,8 @@ class Cosmology:
                           z: Any = 0., 
                           average: bool = True, 
                           normalize: bool = True,
-                          nonlinear: bool = False, ) -> Any:
+                          nonlinear: bool = False, 
+                          ht: bool = False, ) -> Any:
         r"""
         Return the matter correlation function for scale r (in Mpc/h) and redshift z.
 
@@ -759,6 +763,8 @@ class Cosmology:
             If true, normalize the result using value of :math:`\sigma_8`.
         nonlinear: bool, default = False    
             Not used.
+        ht: bool, default = False
+            Use hankel transform to find correlation (Experimental).
 
         Returns
         -------
@@ -768,6 +774,20 @@ class Cosmology:
         """
         if self.power_spectrum is None:
             raise CosmologyError("no power spectrum model is linked with this model")
+        
+        # experimental: using spherical hankel transform
+        if ht:
+            pts = self.settings.corr_plan.nodes
+            wts = self.settings.corr_plan.weights[1 if average else 0]
+            # reshaping arrays to work with array inputs
+            shape = np.shape(pts) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z)))
+            pts = np.reshape(pts, shape)
+            wts = np.reshape(wts, shape)
+            k   = pts / r # pts is k*r
+            res = self.matterPowerSpectrum(k, z, deriv = 0, normalize = normalize, nonlinear = nonlinear) * k**2
+            # integration
+            res = np.sum( res*wts, axis = 0 ) / r
+            return res
         
         # generate integration points in log space
         pts = self.settings.k_plan.nodes
@@ -785,7 +805,7 @@ class Cosmology:
             res = res * hyp0f1(2.5, -0.25*kr**2) # 0F1(2.5, -0.25*x**2) = 3*( sin(x) - x * cos(x) ) / x**3
         else: # correlation function
             res = res * np.sinc(kr / np.pi)
-        res = np.sum( res*wts, axis = 0 )
+        res = np.sum( res*wts, axis = 0 ) / (2*np.pi**2)
         return res
     
     def matterVariance(self, 

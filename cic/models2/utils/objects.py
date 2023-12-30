@@ -3,6 +3,8 @@
 import warnings
 import numpy  as np
 from scipy.fftpack import dct
+from scipy.fft import irfft
+from scipy.special import gamma
 from typing import Any, Callable
 
 class ModelDatabase:
@@ -186,6 +188,7 @@ class DefiniteUnweightedCC(IntegrationRule):
 	"""
 	
 	def __init__(self, a: float, b: float, pts: int) -> None:
+		super().__init__()
 		# make number of points even number greater than or equal to 2
 		pts = 2 * (max(2, pts) // 2) # will be pts + 1 nodes
 		# finding nodes and weights:
@@ -204,4 +207,36 @@ class DefiniteUnweightedCC(IntegrationRule):
 		self._weights = 0.5*(b-a) * self._weights 
 		self.a, self.b, self.pts = a, b, pts + 1 
 		return
-	
+
+class SphericalHankelTransform(IntegrationRule):
+	r"""
+	A special integration rule to calculate spherical hankel transforms.
+
+	Parameters
+	----------
+	L: float
+		Used to specify the integration limits and points. For `N` points, the points are 
+		log spaced from `exp(-L/2)...exp(L/2)`, with spacing `exp(L/N)`.
+	pts: int
+		Number of points to use for integration
+	k_max: int, default = 1
+		Maximum order of transforms.  
+
+	"""
+
+	def __init__(self, L: float, pts: int, k_max: int = 1) -> None:
+		super().__init__()
+		assert L > 0.
+		assert isinstance(k_max, int) and k_max >= 0
+		# log-spaced points
+		__x = np.arange( pts )
+		__x = 2*np.exp( (__x - pts//2) * L/pts )
+		self._nodes, self._weights = __x, []
+		for k in range(k_max + 1):
+			# weights for order k transform TODO: check the equations
+			__w = np.arange( pts//2 + 1 )
+			__w = (-1.)**__w * gamma(0.5 + 1j*__w*np.pi/L) / gamma(k + 1. - 1j*__w*np.pi/L)
+			__w = (2*k+1) * 2**-(2*k+1) / (2*np.pi)**1.5  * irfft(__w)
+			self._weights.append(__w)
+		# integration limits
+		self.a, self.b, self.pts = np.exp(-0.5*L), np.exp(0.5*L), pts
