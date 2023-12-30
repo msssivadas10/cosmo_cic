@@ -9,6 +9,13 @@ class ModelDatabase:
     r"""
     An object to store some models as database. This then allow the user to map 
     models with names and get then easily!
+
+	Parameters
+	----------
+	name: str
+	baseclass: type, tuple of type
+		Type of the objects in the database.
+
     """
     __slots__ = '_db', 'baseclass', 'name'
 
@@ -23,7 +30,7 @@ class ModelDatabase:
 
     def exists(self, key: str) -> bool:
         r"""
-        Check if an item with given key exist or not. 
+        Check if an item with given key `key` exist or not. 
         """
         return key in self._db
 
@@ -61,6 +68,9 @@ class ModelDatabase:
         return self._db.get(key, None)
 
 class IntegrationRule:
+	r"""
+	Base class representing an integration rule.
+	"""
 	__slots__ = 'a', 'b', 'pts', '_nodes', '_weights',
 
 	def __init__(self) -> None:
@@ -72,22 +82,58 @@ class IntegrationRule:
 		self.pts = None
 	
 	@property
-	def nodes(self) -> Any: return self._nodes
+	def nodes(self) -> Any: 
+		r""" 
+		Intergration points for this rule. 
+		"""
+		return self._nodes
 	
 	@property
-	def weights(self) -> Any: return self._weights
+	def weights(self) -> Any: 
+		r""" 
+		Weight of this rule. They will have sum `(b-a)/2` 
+		"""
+		return self._weights
 
 	def __add__(self, other: object) -> 'IntegrationRule':
 		if not isinstance(other, IntegrationRule):
 			return NotImplemented
 		return CompositeIntegrationRule(self, other)
 	
-	def integrate(self, func, args: tuple = None, axis: int = 0) -> Any:
+	def integrate(self, 
+			   	  func: Callable, 
+				  args: tuple = None, 
+				  axis: int = 0,    ) -> Any:
+		r"""
+		Integrate a function `func`.
+
+		Parameters
+		----------
+		func: callable
+		args: tuple, default = None
+			Additional arguments to function call.
+		axis: int, default = 0
+			Axis to use fot summation.
+
+		Returns
+		-------
+		res: array_like
+
+		"""
 		args = args or ()
 		return np.sum( self.weights * func(self.nodes, *args), axis = axis )
 
 class CompositeIntegrationRule(IntegrationRule):
+	r"""
+	A class representing a composite integration rule as left and right rules.
+
+	Parameters
+	----------
+	left, right: IntegrationRule
+
+	"""
 	__slots__ = '_left', '_right', 'connected' 
+
 	def __init__(self, left: IntegrationRule, right: IntegrationRule) -> None:
 		super().__init__()
 		if right.a < left.a: left, right = right, left
@@ -105,9 +151,7 @@ class CompositeIntegrationRule(IntegrationRule):
 	def nodes(self) -> Any:
 		_nodes = np.zeros(self.pts)
 		_nodes[:self._left.pts] = self._left.nodes
-		offset = 0
-		if self.connected:
-			offset = 1
+		offset = 1 if self.connected else 0
 		_nodes[self._left.pts:] = self._right.nodes[offset:]
 		return _nodes
 	
@@ -127,6 +171,20 @@ class CompositeIntegrationRule(IntegrationRule):
 		return res
 
 class DefiniteUnweightedCC(IntegrationRule):
+	r"""
+	A class representing an unweighted clenshaw-curtis integration rule over the interval 
+	`[a, b]`. This can be used for integrations in general, but not useful when in the 
+	function to integrate is highly oscillating.
+
+	Parameters
+	----------
+	a, b: float
+		Limits of integration
+	pts: int
+		Number of points to use for integration
+
+	"""
+	
 	def __init__(self, a: float, b: float, pts: int) -> None:
 		# make number of points even number greater than or equal to 2
 		pts = 2 * (max(2, pts) // 2) # will be pts + 1 nodes
@@ -146,3 +204,4 @@ class DefiniteUnweightedCC(IntegrationRule):
 		self._weights = 0.5*(b-a) * self._weights 
 		self.a, self.b, self.pts = a, b, pts + 1 
 		return
+	
