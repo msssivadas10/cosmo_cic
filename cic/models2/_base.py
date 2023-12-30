@@ -45,6 +45,13 @@ class Cosmology:
                  'Tcmb0', 'w0', 'wa', 'name', 'settings', '_POWERSPECTRUM_NORM', 
                  'power_spectrum', 'window_function', 'mass_function', 'halo_bias', 
                  'halo_cmreln', 'halo_profile', )
+    
+    # unit for distance: value of c/H_0 in h/Mpc units 
+    UNIT_DISTANCE: float = 0.01*SPEED_OF_LIGHT_KMPS
+    # unit for time: value of present hubble time 1/H_0 in Gyr/h
+    UNIT_TIME: float = 1.0e-14 * MPC / YEAR
+    # unit for density: present critical density in h^2 Msun/Mpc^3
+    UNIT_DENSITY: float = RHO_CRIT0_ASTRO
 
     def __init__(self, 
                  h: float, 
@@ -367,7 +374,7 @@ class Cosmology:
             res *= 2*self.E(z, deriv = 0)
         else:
             res *= res
-        return RHO_CRIT0_ASTRO * res
+        return Cosmology.UNIT_DENSITY * res
     
     ###########################################################################################################
     #                                       Distance calculations                                             #
@@ -391,7 +398,6 @@ class Cosmology:
             Comoving distance in astrophysical units (Mpc/h).
 
         """
-        FACT = 0.01*SPEED_OF_LIGHT_KMPS
         # function to integrate
         def func(lnzp1: float) -> float:
             res = np.exp(lnzp1 - 0.5*self.lnE2(lnzp1, deriv = 0))
@@ -399,7 +405,7 @@ class Cosmology:
 
         zp1 = np.add(z, 1.)
         if deriv:
-            return FACT * func( np.log(zp1) ) / zp1
+            return Cosmology.UNIT_DISTANCE * func( np.log(zp1) ) / zp1
         zp1 = 0.5*np.log(zp1)
         # generating integration points
         pts, wts = self.settings.z_plan.nodes, self.settings.z_plan.weights
@@ -407,7 +413,7 @@ class Cosmology:
         pts, wts = np.reshape(1 + pts, shape) * zp1, np.reshape(wts, shape) * zp1
         # log-space integration
         res = np.sum( func( pts ) * wts, axis = 0 )
-        return FACT * res
+        return Cosmology.UNIT_DISTANCE * res
     
     def comovingCoordinate(self, 
                            z: Any,
@@ -588,7 +594,7 @@ class Cosmology:
             Time in astrophysical units (Gyr).
 
         """
-        HT  = 1e-14 * MPC / YEAR / self.h # present hubble time in Gyr
+        HT  = Cosmology.UNIT_TIME / self.h # present hubble time in Gyr
         zp1 = np.add(z, 1.)
         res = np.exp( self.lnE2(np.log(zp1), deriv = 0) )
         if deriv:
@@ -969,7 +975,7 @@ class Cosmology:
             Mass in astrophysical units (Msun/h).
 
         """
-        halo_density = self.Om0 * RHO_CRIT0_ASTRO
+        halo_density = self.Om0 * Cosmology.UNIT_DENSITY
         if overdensity is not None:
             halo_density *= overdensity
         res = 4*np.pi/3. * np.asfarray(r)**3 * halo_density
@@ -993,7 +999,7 @@ class Cosmology:
             Radius in astrophysical units (Mpc/h).
 
         """
-        halo_density = self.Om0 * RHO_CRIT0_ASTRO
+        halo_density = self.Om0 * Cosmology.UNIT_DENSITY
         if overdensity is not None:
             halo_density *= overdensity
         res = np.cbrt( 0.75*np.asfarray(m) / np.pi / halo_density )
@@ -1032,7 +1038,7 @@ class Cosmology:
         f = self.mass_function.call(self, s, z, overdensity)
         if retval in ['f', 'fsigma']:
             return f
-        density  = self.Om0 * RHO_CRIT0_ASTRO * np.add(z, 1.)**3
+        density  = self.Om0 * Cosmology.UNIT_DENSITY * np.add(z, 1.)**3
         dlnsdlnm = self.matterVariance(r, z, deriv = 1, normalize = True, nonlinear = False) / 6.
         # number density
         dndm = f * np.abs(dlnsdlnm) * density / m**2

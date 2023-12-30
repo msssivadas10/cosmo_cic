@@ -4,7 +4,6 @@ import numpy as np
 from typing import Any 
 from scipy.special import hyp2f1 # hypergeometric function
 from ._base import Cosmology, CosmologyError
-from .utils.constants import SPEED_OF_LIGHT_KMPS
 
 class FlatLambdaCDM(Cosmology):
     r"""
@@ -41,7 +40,7 @@ class FlatLambdaCDM(Cosmology):
     def comovingDistance(self, 
                          z: Any, 
                          deriv: int = 0, ) -> Any:
-        FACT = 0.01*SPEED_OF_LIGHT_KMPS
+        FACT = Cosmology.UNIT_DISTANCE
         zp1 = np.add(z, 1.)
         res = self.Om0 * zp1**3
         # first derivative
