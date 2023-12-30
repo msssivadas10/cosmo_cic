@@ -122,4 +122,5 @@ def cosmology(name: str, *args, **kwargs) -> Cosmology:
     if not args and not kwargs:
         raise CosmologyError(f"model not available: '{name}'")
     # create a new model with given name
+    if kwargs.get( 'flat', False ): return FlatLambdaCDM(*args, **kwargs, name = name)
     return Cosmology(*args, **kwargs, name = name)
