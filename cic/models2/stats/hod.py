@@ -3,8 +3,8 @@
 import numpy as np
 from scipy.special import hyp0f1
 from typing import Any 
-from ._base import Cosmology
-from .utils.objects import Settings
+from .._base import Cosmology
+from ..utils.objects import Settings
 
 class HaloError(Exception):
     r"""
