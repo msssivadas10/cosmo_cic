@@ -3,10 +3,8 @@
 import numpy as np
 from scipy.optimize import brentq
 from scipy.special import hyp0f1
-from dataclasses import dataclass
 from typing import Any
-from .utils.objects import ModelDatabase, IntegrationRule, DefiniteUnweightedCC
-from .utils.objects import SphericalHankelTransform # for correlation TODO: check implementation
+from .utils.objects import ModelDatabase, Settings
 from .utils.constants import SPEED_OF_LIGHT_KMPS, RHO_CRIT0_ASTRO, DELTA_SC, MPC, YEAR                
 
 #########################################################################################
@@ -17,34 +15,54 @@ class CosmologyError(Exception):
     r"""
     Base class of exceptions raised in cosmology calculations.
     """
-
-@dataclass
-class _CosmologySettings:
-    # inifinity value for redshift integration
-    z_inf: float = 1e+08
-    # zero value for k integration (variance and correlation calculations)
-    k_zero: float = 1e-04
-    # infinity value for k integration
-    k_inf: float = 1e+04 
-    # number of points for k integration
-    k_pts: float = 1001
-    # relative tolerance for convergence check
-    reltol: float = 1e-06
-    # redshift integration plan (points in log(z+1) space) NOTE: not used currently
-    z_plan: IntegrationRule = DefiniteUnweightedCC(a = -1., b = 1., pts = 128)
-    # k integration plan (points in log(k) space)
-    k_plan: IntegrationRule = (DefiniteUnweightedCC(a = -14., b = -7., pts = 64 ) + # 1e-06 to 1e-03, approx. 
-                               DefiniteUnweightedCC(a =  -7., b =  7., pts = 512) + # 1e-03 to 1e+03, approx. 
-                               DefiniteUnweightedCC(a =   7., b = 14., pts = 64 ) ) # 1e+03 to 1e+06, approx. 
-    # special integration plan for correlation function calculation
-    corr_plan: SphericalHankelTransform = SphericalHankelTransform(L = 38., pts = 128, k_max = 1)
-
+    
 class Cosmology:
     r"""
-    Base class representing a general cosmology model.
+    Base class representing a general cosmology model. This is basically a cosmology using a w0-wa dark-
+    energy model, but can be extended to use other dark-energy models as well as radiation (which is not 
+    currently not included).
+
+    Parameters
+    ----------
+    h: float
+        Present value of the hubble parameter in 100 km/sec/Mpc. 
+    Om0: float 
+        Present value of total matter density, in units of critical density. Its value should be greater 
+        than or equal to the sum `Ob0 + Onu0`.
+    Ob0: float 
+        Present value of baryon density, in units of critical density.
+    Ode0: float, default = None
+        Present value of dark-energy density, in units of critical density. If not given, calculate its 
+        value from others, assuming a flat universe.
+    Onu0: float, default = 0.0
+        Present value of massive neutrino density, in units of critical density. 
+    Nnu: float, default = 3.0
+        Number of massive neutrino species. 
+    ns: float, default = 1.0
+        Power spectrum index.
+    sigma8: float, default = 1.0
+        Power spectrum normalization. 
+    w0: float, default = -1.0   
+        Constant part of the w0-wa model dark-energy state parameter. Default value means cosmological constant. 
+    wa: float, default = 0.0
+        Variable part of the w0-wa model dark-energy state parameter. Default value means cosmological constant. 
+    Tcmb0: float, default = 2.725 
+        Present temperature of the micrwave background radiation in K.
+    name: str, default = None
+        Optional name for the cosmology model.
+
+    Attributes
+    ----------
+    settings: Settings
+        Contains various settings for numerical calculations, such as integrators. 
+
+    Raises
+    ------
+    CosmologyError
+
     """
     
-    __slots__ = ('h', 'Om0', 'Ob0', 'Ode0', 'Onu0', 'Ok0', 'Nnu', 'ns', 'sigma8', 
+    __slots__ = ('h', 'Om0', 'Ob0', 'Ode0', 'Onu0', 'Ok0', 'Or0', 'Nnu', 'ns', 'sigma8', 
                  'Tcmb0', 'w0', 'wa', 'name', 'settings', '_POWERSPECTRUM_NORM', 
                  'power_spectrum', 'window_function', 'mass_function', 'halo_bias', 
                  'halo_cmreln', 'halo_profile', )
@@ -107,6 +125,8 @@ class Cosmology:
             raise CosmologyError("dark energy density must be non-negative")
         # w0-wa dark-energy model parameters
         self.w0, self.wa = w0, wa
+        # radiation density is set to zero
+        self.Or0 = 0.
         # initial power spectrum index
         self.ns = ns     
         # power spectrum normalisation #1: matter variance smoothed at 8 Mpc/h scale
@@ -125,7 +145,7 @@ class Cosmology:
         # power spectrum normalisation #2: set value of variance at r = 8 to 1
         self._POWERSPECTRUM_NORM = 1.0
         # general settings table
-        self.settings = _CosmologySettings()
+        self.settings = Settings()
         # linked models (not initialised)
         self.power_spectrum : PowerSpectrum  = None
         self.window_function: WindowFunction = None
@@ -161,14 +181,12 @@ class Cosmology:
             Halo density profile model.
 
         """
-        attrmap = {
-                    'power_spectrum': [ 'power_spectrum' , PowerSpectrum  ],
-                    'window'        : [ 'window_function', WindowFunction ],
-                    'mass_function' : [ 'mass_function'  , MassFunction   ],
-                    'halo_bias'     : [ 'halo_bias'      , HaloBias       ],
-                    'cmreln'        : [ 'halo_cmreln'    , HaloConcentrationMassRelation ],
-                    'halo_profile'  : [ 'halo_profile'   , HaloDensityProfile ],
-                  }
+        attrmap = {'power_spectrum': [ 'power_spectrum' , PowerSpectrum  ],
+                   'window'        : [ 'window_function', WindowFunction ],
+                   'mass_function' : [ 'mass_function'  , MassFunction   ],
+                   'halo_bias'     : [ 'halo_bias'      , HaloBias       ],
+                   'cmreln'        : [ 'halo_cmreln'    , HaloConcentrationMassRelation ],
+                   'halo_profile'  : [ 'halo_profile'   , HaloDensityProfile ], }
         for __key, __value in kwargs.items():
             if __key not in attrmap: 
                 raise TypeError(f"unknown argument '{ __key }'")
@@ -401,22 +419,20 @@ class Cosmology:
             Comoving distance in astrophysical units (Mpc/h).
 
         """
-        # function to integrate
-        def func(lnzp1: float) -> float:
-            res = np.exp(lnzp1 - 0.5*self.lnE2(lnzp1, deriv = 0))
-            return res
-
-        zp1 = np.add(z, 1.)
         if deriv:
-            return Cosmology.UNIT_DISTANCE * func( np.log(zp1) ) / zp1
-        zp1 = 0.5*np.log(zp1)
+            res = Cosmology.UNIT_DISTANCE / self.E(z, deriv = 0)
+            return res
+        _scale = 0.5*np.divide( z, np.add(z, 1.) )
         # generating integration points
-        pts, wts = self.settings.z_plan.nodes, self.settings.z_plan.weights
-        shape    = np.shape(pts) + tuple(1 for _ in np.shape(zp1))
-        pts, wts = np.reshape(1 + pts, shape) * zp1, np.reshape(wts, shape) * zp1
-        # log-space integration
-        res = np.sum( func( pts ) * wts, axis = 0 )
-        return Cosmology.UNIT_DISTANCE * res
+        pts, wts = self.settings.z_quad.nodes, self.settings.z_quad.weights
+        shape    = np.shape(pts) + tuple(1 for _ in np.shape(z))
+        res, wts = np.reshape(pts, shape) * _scale + (1. - _scale), np.reshape(wts, shape) * _scale
+        # integration
+        msk = ( res != 0 )
+        res[msk] = 1. / res[msk]
+        res[msk] = res[msk]**2 / self.E( res[msk] - 1. )
+        res = Cosmology.UNIT_DISTANCE * np.sum( res*wts, axis = 0 )
+        return res
     
     def comovingCoordinate(self, 
                            z: Any,
@@ -561,22 +577,19 @@ class Cosmology:
             Time in units of present hubble time.
 
         """
-        # function to integrate
-        def func(lnzp1: float) -> float:
-            res = np.exp( -0.5*self.lnE2(lnzp1, deriv = 0) )
-            return res
-        
-        zp1 = np.add(z, 1.)
         if deriv:
-            return -func( np.log(zp1) ) / zp1
-        inf = np.log(self.settings.z_inf+1)
-        zp1 = 0.5*( inf - np.log(zp1) )
-        # # generating integration points
-        pts, wts = self.settings.z_plan.nodes, self.settings.z_plan.weights
-        shape    = np.shape(pts) + tuple(1 for _ in np.shape(zp1))
-        pts, wts = np.reshape(pts - 1, shape) * zp1 + inf, np.reshape(wts, shape) * zp1
-        # # log-space integration
-        res = np.sum( func( pts ) * wts, axis = 0 )
+            res = -1. / ( np.add(z, 1.) * self.E(z) )
+            return res
+        _scale = 0.5 / np.add(z, 1.)
+        # generating integration points
+        pts, wts = self.settings.z_quad.nodes, self.settings.z_quad.weights
+        shape    = np.shape(pts) + tuple(1 for _ in np.shape(z))
+        res, wts = np.reshape(pts + 1, shape) * _scale, np.reshape(wts, shape) * _scale
+        # integration
+        msk = ( res != 0 )
+        res[msk] = 1. / res[msk] # z + 1
+        res[msk] = res[msk] / self.E( res[msk] - 1. )
+        res = np.sum( res * wts, axis = 0 )
         return res
     
     def hubbleTime(self, 
@@ -622,7 +635,7 @@ class Cosmology:
             Time in astrophysical units (Gyr).
 
         """
-        HT  = 1e-14 * MPC / YEAR / self.h # present hubble time in Gyr
+        HT  = Cosmology.UNIT_TIME / self.h # present hubble time in Gyr
         return HT * self.time(z, deriv)        
     
     ###########################################################################################################
@@ -647,24 +660,19 @@ class Cosmology:
             Linear growth factor, without normalization.
  
         """
-        # function to integrate
-        def func(lnzp1: float) -> float:
-            res = np.exp( 2*lnzp1 - 1.5*self.lnE2(lnzp1, deriv = 0) )
-            return res
-        
-        inf   = np.log(self.settings.z_inf+1)
-        lnzp1 = np.log(np.add(z, 1.))
-        # # generating integration points
-        _scale   = 0.5*( inf - lnzp1 )
-        pts, wts = self.settings.z_plan.nodes, self.settings.z_plan.weights
-        shape    = np.shape(pts) + tuple(1 for _ in np.shape(lnzp1))
-        pts, wts = np.reshape(pts - 1, shape) * _scale + inf, np.reshape(wts, shape) * _scale
-        # # log-space integration
-        res = np.sum( func( pts ) * wts, axis = 0 )
+        zp1 = np.add(z, 1.)
+        Ez  = self.E(z)
+        # generating integration points
+        pts, wts = self.settings.z_quad.nodes, self.settings.z_quad.weights
+        shape    = np.shape(pts) + tuple(1 for _ in np.shape(z))
+        res, wts = np.reshape(pts + 1, shape) * (0.5 / zp1), np.reshape(wts, shape) * (0.5 / zp1)
+        # integration
+        msk = ( res != 0 )
+        res[msk] = 1. / res[msk] # z + 1
+        res[msk] = ( res[msk] / self.E( res[msk] - 1. ) )**3
+        res = Ez * np.sum( res * wts, axis = 0 ) # growth factor: D_+(z)
         if deriv: # growth rate: f(z)
-            res = func(lnzp1) / res - 0.5*self.lnE2(lnzp1, deriv = 1)
-        else: # growth factor: D_+(z)
-            res = np.exp( 0.5*self.lnE2(lnzp1, deriv = 0) ) * res # * 2.5 * self.Om0
+            res = (zp1 / Ez)**2 / res - 0.5*self.lnE2( np.log(zp1), deriv = 1 )
         return res
 
     ###########################################################################################################
@@ -771,14 +779,19 @@ class Cosmology:
         res: array_like
             Matter 2-point correlation functions 
 
+        Notes
+        -----
+        Using a hankel transform is an experimental stage. At this time, result not matching 
+        with the usual result (implementation of hankel transform rule is to be checked).  
+
         """
         if self.power_spectrum is None:
             raise CosmologyError("no power spectrum model is linked with this model")
         
         # experimental: using spherical hankel transform
         if ht:
-            pts = self.settings.corr_plan.nodes
-            wts = self.settings.corr_plan.weights[1 if average else 0]
+            pts = self.settings.corr_quad.nodes
+            wts = self.settings.corr_quad.weights[1 if average else 0]
             # reshaping arrays to work with array inputs
             shape = np.shape(pts) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z)))
             pts = np.reshape(pts, shape)
@@ -790,8 +803,8 @@ class Cosmology:
             return res
         
         # generate integration points in log space
-        pts = self.settings.k_plan.nodes
-        wts = self.settings.k_plan.weights
+        pts = self.settings.k_quad.nodes
+        wts = self.settings.k_quad.weights
         # reshaping k array to work with array inputs
         shape = np.shape(pts) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z)))
         pts = np.reshape(pts, shape)
@@ -842,8 +855,8 @@ class Cosmology:
             raise CosmologyError("j must be zero or positive integer")
         
         # generate integration points in log space
-        pts = self.settings.k_plan.nodes
-        wts = self.settings.k_plan.weights
+        pts = self.settings.k_quad.nodes
+        wts = self.settings.k_quad.weights
         # reshaping k array to work with array inputs
         shape = np.shape(pts) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z)))
         pts = np.reshape(pts, shape)
@@ -858,9 +871,9 @@ class Cosmology:
         r  = np.asfarray(r)
         kr = k*r
         # variance
-        f1 = NORM * self.matterPowerSpectrum(k, z, deriv = 0, normalize = None, nonlinear = nonlinear) * k**(3 + j)
-        f3 = self.window_function(kr, deriv = 0)
-        f2 = f1*f3
+        res3 = NORM * self.matterPowerSpectrum(k, z, deriv = 0, normalize = None, nonlinear = nonlinear) * k**(3 + j)
+        f3   = self.window_function(kr, deriv = 0)
+        f2   = res3*f3
         res1 = np.sum( f2*f3*wts, axis = 0 )
         if deriv == 0:
             return res1
@@ -870,7 +883,7 @@ class Cosmology:
         if deriv == 1:
             return r / res1 * res2
         # second derivative
-        res3 = 0.5*f1 * f3**2 + 2*f2 * self.window_function(kr, deriv = 2) * k**2
+        res3 = 0.5*res3 * f3**2 + 2*f2 * self.window_function(kr, deriv = 2) * k**2
         res3 = np.sum( res3*wts, axis = 0 )
         if deriv == 2:
             res1 = r / res1

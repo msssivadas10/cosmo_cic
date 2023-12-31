@@ -8,6 +8,38 @@ from ._base import Cosmology, CosmologyError
 class FlatLambdaCDM(Cosmology):
     r"""
     A class representing a flat Lambda-CDM cosmlogy.
+
+    Parameters
+    ----------
+    h: float
+        Present value of the hubble parameter in 100 km/sec/Mpc. 
+    Om0: float 
+        Present value of total matter density, in units of critical density. Its value should be greater 
+        than or equal to the sum `Ob0 + Onu0`.
+    Ob0: float 
+        Present value of baryon density, in units of critical density.
+    Onu0: float, default = 0.0
+        Present value of massive neutrino density, in units of critical density. 
+    Nnu: float, default = 3.0
+        Number of massive neutrino species. 
+    ns: float, default = 1.0
+        Power spectrum index.
+    sigma8: float, default = 1.0
+        Power spectrum normalization. 
+    Tcmb0: float, default = 2.725 
+        Present temperature of the micrwave background radiation in K.
+    name: str, default = None
+        Optional name for the cosmology model.
+
+    Attributes
+    ----------
+    settings: Settings
+        Contains various settings for numerical calculations, such as integrators. 
+
+    Raises
+    ------
+    CosmologyError
+
     """
     
     def __init__(self, 
@@ -94,7 +126,8 @@ def cosmology(name: str, *args, **kwargs) -> Cosmology:
         If a predefined name, return that cosmology.Otherwise, create a cosmology with 
         this name.
     *args, **kwargs: Any
-        Other arguments are passed to `Cosmology` object constructor.
+        Other arguments are passed to `Cosmology` object constructor. Use the `flat` keyword for creating 
+        a flat Lambda-CDM model.
 
     Returns
     -------
