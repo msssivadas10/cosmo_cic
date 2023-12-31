@@ -13,7 +13,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from scipy.special import erf
 from cic.models2 import cosmology, Cosmology
 from cic.models2.cosmology import FlatLambdaCDM
-from cic.models2.hod import HaloModel
+from cic.models2.stats.hod import HaloModel
 
 # save the doculment as a pdf
 def print_report(document: list, path: str, metadata: dict = None):

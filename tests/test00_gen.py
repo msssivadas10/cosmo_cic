@@ -9,7 +9,7 @@ import numpy as np
 from scipy.special import erf 
 import matplotlib.pyplot as plt
 from cic.models2 import cosmology
-from cic.models2.hod import HaloModel
+from cic.models2.stats.hod import HaloModel
 
 class Model1(HaloModel):
 	def __init__(self, 
