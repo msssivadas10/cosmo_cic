@@ -921,6 +921,32 @@ class Cosmology:
         res = self.collapseDensity(z) / np.sqrt(var)
         return res
     
+    def scale(self, 
+              s: Any, 
+              z: Any = 0., 
+              normalize: bool = True,
+              nonlinear: bool = False, ) -> Any:
+        r"""
+        Returns the scale (in Mpc/h) corresponding to matter variance s.
+
+        Parameters
+        ----------
+        s: array_like
+        z: array_like
+        deriv: int, default = 0
+            If non-zero, return the log derivative of that order (values = 0, 1 or 2).
+        normalize: bool, default = True
+            If true, s is the normalized value using value of :math:`\sigma_8`.
+        nonlinear: bool, default = False    
+            Not used.
+
+        Returns
+        -------
+        res: array_like
+            
+        """
+        raise NotImplementedError()
+    
     def collapseDensity(self, z: Any) -> Any:
         r"""
         Return the critical over-density for spherical collapse at redshift z.
