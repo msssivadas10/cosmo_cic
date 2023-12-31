@@ -5,6 +5,7 @@ import numpy  as np
 from scipy.fftpack import dct
 from scipy.fft import irfft
 from scipy.special import gamma
+from dataclasses import dataclass
 from typing import Any, Callable
 
 class ModelDatabase:
@@ -79,9 +80,10 @@ class IntegrationRule:
 		# integration nodes and weights
 		self._nodes, self._weights = None, None
 		# integration limits
-		self.a, self.b = None, None
+		self.a: float = None
+		self.b: float = None
 		# number of points
-		self.pts = None
+		self.pts: int = None
 	
 	@property
 	def nodes(self) -> Any: 
@@ -240,3 +242,20 @@ class SphericalHankelTransform(IntegrationRule):
 			self._weights.append(__w)
 		# integration limits
 		self.a, self.b, self.pts = np.exp(-0.5*L), np.exp(0.5*L), pts
+
+@dataclass
+class Settings:
+	r"""
+	A table of various settings for calculations.
+	"""
+	reltol: float = 1e-06
+	# redshift integration rule
+	z_quad: IntegrationRule = DefiniteUnweightedCC(a = -1., b = 1., pts = 128)
+	# k integration rule (points in log(k) space)
+	k_quad: IntegrationRule = (DefiniteUnweightedCC(a = -14., b = -7., pts = 64 ) + # 1e-06 to 1e-03, approx. 
+								DefiniteUnweightedCC(a =  -7., b =  7., pts = 512) + # 1e-03 to 1e+03, approx. 
+								DefiniteUnweightedCC(a =   7., b = 14., pts = 64 ) ) # 1e+03 to 1e+06, approx. 
+	# special integration rule for correlation function calculation (experimental feature)
+	corr_quad: SphericalHankelTransform = SphericalHankelTransform(L = 38., pts = 128, k_max = 1)
+	# mass integration rule (points in log(m) space)
+	m_quad: IntegrationRule = (DefiniteUnweightedCC(a = 12., b = 42., pts = 512)) # 1e+6 to 1e+18, approx
