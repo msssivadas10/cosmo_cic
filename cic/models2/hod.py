@@ -1,10 +1,10 @@
 #!/usr/bin/python3
 
 import numpy as np
-from scipy.integrate import simpson
 from scipy.special import hyp0f1
 from typing import Any 
 from ._base import Cosmology
+from .utils.objects import Settings
 
 class HaloError(Exception):
     r"""
@@ -15,7 +15,8 @@ class HaloModel:
     r"""
     Base class representing a halo model.
     """
-    __slots__ = 'cosmology', 'overdensity', 'ma', 'mb', 'mpts'
+
+    __slots__ = 'cosmology', 'overdensity', 'settings'
 
     def __init__(self, 
                  cosmology: Cosmology | None = None, 
@@ -24,8 +25,8 @@ class HaloModel:
         self.link(cosmology)
         # halo overdensity
         self.overdensity = overdensity
-        # integration settings
-        self.ma, self.mb, self.mpts = 1e+06, 1e+16, 1001
+        # general settings table
+        self.settings = Settings()
 
     def link(self, model: Cosmology) -> None:
         r"""
@@ -183,14 +184,16 @@ class HaloModel:
         res: array_like
         
         """
-        # generating integration points
-        lnma, lnmb, pts = np.log(self.ma), np.log(self.mb), self.mpts
-        m, dlnm = np.linspace(lnma, lnmb, pts, retstep = True) # m is ln(m)
-        m = np.reshape(np.exp(m), np.shape(m) + tuple(1 for _ in np.shape(z)))
+        # generating integration points in log space
+        pts, wts = self.settings.m_quad.nodes, self.settings.m_quad.weights
+        # reshaping m array to work with array inputs
+        shape = np.shape(pts) + tuple(1 for _ in np.shape(z))
+        m   = np.reshape(np.exp(pts), shape) 
+        wts = np.reshape(wts, shape)
         # function to integrate
         res = self.totalCount(m) * self.massFunction(m, z, 'dndlnm')
         # logspace integration
-        res = simpson(res, dx = dlnm, axis = 0)
+        res = np.sum( res * wts, axis = 0 )
         return res
 
     def averageHaloMass(self, z: Any) -> Any:
@@ -206,16 +209,18 @@ class HaloModel:
         res: array_like
 
         """
-        # generating integration points
-        lnma, lnmb, pts = np.log(self.ma), np.log(self.mb), self.mpts
-        m, dlnm = np.linspace(lnma, lnmb, pts, retstep = True) # m is ln(m)
-        m = np.reshape(np.exp(m), np.shape(m) + tuple(1 for _ in np.shape(z)))
+        # generating integration points in log space
+        pts, wts = self.settings.m_quad.nodes, self.settings.m_quad.weights
+        # reshaping m array to work with array inputs
+        shape = np.shape(pts) + tuple(1 for _ in np.shape(z))
+        m   = np.reshape(np.exp(pts), shape) 
+        wts = np.reshape(wts, shape)
         # function to integrate
         res1 = self.totalCount(m) * self.massFunction(m, z, 'dndlnm') # for normalization
         res2 = m * res1
         # logspace integration
-        res2 = simpson(res2, dx = dlnm, axis = 0)
-        res1 = simpson(res1, dx = dlnm, axis = 0)
+        res2 = np.sum( res2 * wts, axis = 0 )
+        res1 = np.sum( res1 * wts, axis = 0 )
         return res2 / res1
     
     def effectiveBias(self, z: Any) -> Any:
@@ -231,16 +236,18 @@ class HaloModel:
         res: array_like
 
         """
-        # generating integration points
-        lnma, lnmb, pts = np.log(self.ma), np.log(self.mb), self.mpts
-        m, dlnm = np.linspace(lnma, lnmb, pts, retstep = True) # m is ln(m)
-        m = np.reshape(np.exp(m), np.shape(m) + tuple(1 for _ in np.shape(z)))
+        # generating integration points in log space
+        pts, wts = self.settings.m_quad.nodes, self.settings.m_quad.weights
+        # reshaping m array to work with array inputs
+        shape = np.shape(pts) + tuple(1 for _ in np.shape(z))
+        m   = np.reshape(np.exp(pts), shape) 
+        wts = np.reshape(wts, shape)
         # function to integrate
         res1 = self.totalCount(m) * self.massFunction(m, z, 'dndlnm') # for normalization
         res2 = self.biasFunction(m, z) * res1
         # logspace integration
-        res2 = simpson(res2, dx = dlnm, axis = 0)
-        res1 = simpson(res1, dx = dlnm, axis = 0)
+        res2 = np.sum( res2 * wts, axis = 0 )
+        res1 = np.sum( res1 * wts, axis = 0 )
         return res2 / res1
     
     def galaxyPowerSpectrum(self, 
@@ -271,11 +278,12 @@ class HaloModel:
         retval = sorted(set(retval), key = lambda __str: {'cs':0, 'ss':1, '2h':2}.get(__str, 3))
         if retval[-1] not in {'cs', 'ss', '2h'} and retval[-1]:
             raise ValueError(f"invalid power spectrum type: { retval[-1] }")
-        # generating integration points
-        lnma, lnmb, pts = np.log(self.ma), np.log(self.mb), self.mpts
-        m, dlnm = np.linspace(lnma, lnmb, pts, retstep = True) # m is ln(m)
-        # m = np.reshape(np.exp(m), np.shape(m) + tuple(1 for _ in np.shape(z)))
-        m = np.reshape(np.exp(m), np.shape(m) + tuple(1 for _ in np.broadcast_shapes(np.shape(k), np.shape(z))))
+        # generating integration points in log space
+        pts, wts = self.settings.m_quad.nodes, self.settings.m_quad.weights
+        # reshaping m array to work with array inputs
+        shape = np.shape(pts) + tuple(1 for _ in np.broadcast_shapes(np.shape(k), np.shape(z)))
+        m   = np.reshape(np.exp(pts), shape) 
+        wts = np.reshape(wts, shape)
         # fourier space density profile
         prof = self.fourierProfile(k, m, z)
         res1 = self.massFunction(m, z, 'dndlnm') * prof
@@ -283,15 +291,15 @@ class HaloModel:
         # power spectrum calculation: central-satellite
         if 'cs' in retval:
             res2 = res1 * self.centralCount(m)**2 * self.satelliteFraction(m)
-            res += 2*simpson(res2, dx = dlnm, axis = 0)
+            res += 2*np.sum( res2 * wts, axis = 0 )
         # power spectrum calculation: satellite-satellite
         if 'ss' in retval:
             res2 = res1 * prof * (self.centralCount(m) * self.satelliteFraction(m))**2
-            res += simpson(res2, dx = dlnm, axis = 0)
+            res += np.sum( res2 * wts, axis = 0 )
         # power spectrum calculation: central-satellite
         if '2h' in retval:
             res2 = res1 * self.totalCount(m) * self.biasFunction(m, z)
-            res2 = simpson(res2, dx = dlnm, axis = 0)
+            res2 = np.sum( res2 * wts, axis = 0 )
             res += res2**2 * self.matterPowerSpectrum(k, z) 
         # normalization
         res = res / self.galaxyDensity(z)**2
@@ -301,7 +309,8 @@ class HaloModel:
                           r: Any, 
                           z: Any, 
                           retval: str | None = None, 
-                          average: bool = True, ) -> Any:
+                          average: bool = True, 
+                          ht: bool = False, ) -> Any:
         r"""
         Return the galaxy correlation as function of scale r (Mpc/h) at redshift z.
         
@@ -316,46 +325,50 @@ class HaloModel:
         average: bool, default = True
             If true, return the average correlation over a sphere of radius r.
 
+        ht: bool, default = False
+            Use hankel transform to find correlation (Experimental).
+
         Returns
         -------
         res: array_like
+            Matter 2-point correlation functions 
+
+        Notes
+        -----
+        Using a hankel transform is an experimental stage. At this time, result not matching with the 
+        usual result (implementation of hankel transform rule is to be checked).  
 
         """
+        # experimental: using spherical hankel transform
+        if ht:
+            pts = self.settings.corr_quad.nodes
+            wts = self.settings.corr_quad.weights[1 if average else 0]
+            # reshaping arrays to work with array inputs
+            shape = np.shape(pts) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z)))
+            pts = np.reshape(pts, shape)
+            wts = np.reshape(wts, shape)
+            k   = pts / r # pts is k*r
+            res = self.galaxyPowerSpectrum(k, z, retval) * k**2
+            # integration
+            res = np.sum( res*wts, axis = 0 ) / r
+            return res
+        
+        # generate integration points in log space
+        pts = self.settings.k_quad.nodes
+        wts = self.settings.k_quad.weights
+        # reshaping k array to work with array inputs
+        shape = np.shape(pts) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z)))
+        pts = np.reshape(pts, shape)
+        wts = np.reshape(wts, shape)
+        # correlation 
+        k  = np.exp(pts)
+        r  = np.asfarray(r)
+        kr = k*r
+        res = self.galaxyPowerSpectrum(k, z, retval) * k**3
         if average: # average correlation function
-            # generate integration points in log space
-            lnka, lnkb = np.log(self.cosmology.settings.k_zero), np.log(self.cosmology.settings.k_inf)
-            k, dlnk    = np.linspace(lnka, lnkb, self.cosmology.settings.k_pts, retstep = True) # k is log(k)
-            # reshaping k array to work with array inputs
-            k  = np.reshape(k, np.shape(k) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z))))
-            k  = np.exp(k)
-            r  = np.asfarray(r)
-            kr = k*r
-            # correlation
-            res = self.galaxyPowerSpectrum(k, z, retval = retval) * k**3
-            # hypergeometric function, 0F1(2.5, -0.25*x**2) = 3*( sin(x) - x * cos(x) ) / x**3
-            res = hyp0f1(2.5, -0.25*kr**2) * res 
-            res = simpson(res, dx = dlnk, axis = 0)
+            res = res * hyp0f1(2.5, -0.25*kr**2) # 0F1(2.5, -0.25*x**2) = 3*( sin(x) - x * cos(x) ) / x**3
         else: # correlation function
-            reltol   = self.cosmology.settings.reltol
-            pts      = self.cosmology.settings.k_pts
-            kra, krb = self.cosmology.settings.k_zero, 5*np.pi
-            res = 0
-            for i in range(500):
-                # generate integration points in log space
-                kr, dlnkr = np.linspace(np.log(kra), np.log(krb), pts, retstep = True) # kr is log(kr)
-                # reshaping k array to work with array inputs
-                kr = np.reshape(kr, np.shape(kr) + tuple(1 for _ in np.broadcast_shapes(np.shape(r), np.shape(z))))
-                kr = np.exp(kr)
-                r  = np.asfarray(r)
-                k  = kr / r
-                # correlation 
-                delta = self.galaxyPowerSpectrum(k, z, retval = retval) * k**3 * np.sinc(kr)
-                delta = simpson(delta, dx = dlnkr, axis = 0)
-                # if the step is much less than the sum, break (TODO: check condition)
-                if np.all( np.abs(np.abs(delta) - reltol * np.abs(res)) < 1e-08 ): break
-                res  += delta 
-                kra, krb = krb, krb + np.pi
-                # after the first step, number of points is 1/10 of the original
-                if not i: pts = pts // 10
-        return res / (2*np.pi**2)
+            res = res * np.sinc(kr / np.pi)
+        res = np.sum( res*wts, axis = 0 ) / (2*np.pi**2)
+        return res
     
