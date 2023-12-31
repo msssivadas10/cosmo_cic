@@ -38,8 +38,9 @@ _initialise_models()
 
 __all__ = ['power_spectrum', 
            'halos', 
-           'specials',
-           'cosmology', 
+           'cosmology',
+           'stats',
+           'utils', 
            'FlatLambdaCDM',
            'Cosmology', 
            'CosmologyError',
