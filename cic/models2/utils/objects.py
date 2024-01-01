@@ -238,13 +238,14 @@ class SphericalHankelTransform(IntegrationRule):
         assert isinstance(k_max, int) and k_max >= 0
         # log-spaced points
         __x = np.arange( pts )
-        __x = 2*np.exp( (__x - pts//2) * L/pts )
+        __x[ __x > pts // 2 ] -= pts
+        __x = np.exp( __x*L/pts )
         self._nodes, self._weights = __x, []
         for k in range(k_max + 1):
             # weights for order k transform TODO: check the equations
-            __w = np.arange( pts//2 + 1 )
-            __w = (-1.)**__w * gamma(0.5 + 1j*__w*np.pi/L) / gamma(k + 1. - 1j*__w*np.pi/L)
-            __w = (2*k+1) * 2**-(2*k+1) / (2*np.pi)**1.5  * irfft(__w)
+            __w = np.arange( pts//2 + 1 ) * np.pi/L
+            __w = np.exp(1.3862943611198906j*__w) * gamma(1. + 1j*__w) / gamma((2*k + 1)*0.5 - 1j*__w)
+            __w = 2*(2*k+1) / 2**(k + 0.5) / (2*np.pi)**1.5  * irfft(__w)
             self._weights.append(__w)
         # integration limits
         self.a, self.b, self.pts = np.exp(-0.5*L), np.exp(0.5*L), pts
