@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 import numpy as np
-from scipy.optimize import brentq
 from scipy.special import hyp0f1
 from typing import Any
 from .utils.objects import ModelDatabase, Settings
@@ -945,7 +944,15 @@ class Cosmology:
         res: array_like
             
         """
-        raise NotImplementedError()
+        s = np.multiply(s, s)
+        # cost function: function to find root
+        def cost(lnr: float, z: float, s: float) -> float:
+            res = self.matterVariance(np.exp(lnr), z, normalize = normalize, nonlinear = nonlinear) - s
+            return res
+
+        res = self.settings.r_finder.rootof(cost, args = (z, s, ))
+        res = np.exp(res)
+        return res
     
     def collapseDensity(self, z: Any) -> Any:
         r"""
@@ -962,9 +969,7 @@ class Cosmology:
         """
         return DELTA_SC * np.ones_like(z, dtype = 'float')
     
-    def collapseRadius(self, 
-                       z: Any, 
-                       **kwargs: Any, ) -> Any:
+    def collapseRadius(self, z: Any) -> Any:
         r"""
         Return the collapse radius of a halo at redshift z.
 
@@ -978,25 +983,16 @@ class Cosmology:
             Collapse radius in Mpc/h.
 
         """
-        lnra, lnrb = np.log(1e-03), np.log(1e+03)
-
         # cost function: function to find root
         def cost(lnr: float, z: float) -> float:
             res = self.nu(np.exp(lnr), z, normalize = True, nonlinear = False) - 1.
             return res
 
-        # vectorised function returning collapse radius
-        @np.vectorize
-        def result(z: float) -> float: 
-            lnr = brentq(cost, lnra, lnrb, args = (z, ), disp = False, **kwargs)
-            return np.exp( lnr )
-
-        res = result(z)
+        res = self.settings.r_finder.rootof(cost, args = (z, ))
+        res = np.exp(res)
         return res
     
-    def collapseRedshift(self, 
-                         r: Any, 
-                         **kwargs: Any, ) -> Any:
+    def collapseRedshift(self, r: Any) -> Any:
         r"""
         Return the collapse redshift for a halo of radius r Mpc/h.
 
