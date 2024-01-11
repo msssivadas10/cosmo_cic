@@ -88,33 +88,37 @@ def checkResult():
     yExp    = poissonPMF(x, lam = lam)
     # graph
     fig = plt.figure(figsize = (8, 9))
-    ax1 = fig.add_axes([0.12, 0.1, 0.8, 0.2])
-    ax1.errorbar(x, yEst, yErr, fmt = 'o', capsize = 5, label = 'Estimated')
-    ax1.plot(x, yExp, label = "Expected")
+    ax1 = fig.add_axes([0.11, 0.1, 0.67, 0.2])
+    ax1.errorbar(x, yEst, yErr, fmt = 'o', capsize = 5, label = 'Estimated', color = '#212178')
+    ax1.plot(x, yExp, label = "Expected", color = '#5f5fd3')
     ax1.set(xlabel="n", ylabel="p(n)") 
-    ax1.legend(title = "Count PMF")
-    ax2 = fig.add_axes([0.12, 0.35, 0.8, 0.65])
+    ax1.legend(title = "Count PMF", bbox_to_anchor = (1, 0, 1, 1), loc = 'center left', frameon = False)
+    ax2 = fig.add_axes([0.04, 0.35, 0.8, 0.65])
     x,y = np.loadtxt(datafile, usecols = (0, 1), skiprows = 1, unpack = 1, delimiter = ',')
-    m   = (x < 10) & (y < 10)
-    ax2.plot(x[m], y[m], 'o', ms = 0.2)
-    ax2.set(xlim = (-1., 11.), ylim = (-1., 11.))
+    m   = (x < 5) & (y < 5)
+    x,y = x[m], y[m]
+    m   = np.where( np.random.uniform(0, 1, x.shape) < 0.1, True, False ) 
+    ax2.plot(x[m], y[m], 'o', ms = 3., color = '#212178')
+    ax2.set(xlim = (-1., 6.), ylim = (-1., 6.))
     __x = 0.
-    while __x <= res.patchsize[0]:
-        ax2.plot([__x, __x], [0., 10.], lw = 1, color = 'black') 
-        ax2.plot([0., 10.], [__x, __x], lw = 1, color = 'black') 
+    while __x <= 5.:
+        ax2.plot([__x, __x], [0., 5.], lw = 1, color = 'black') 
+        ax2.plot([0., 5.], [__x, __x], lw = 1, color = 'black') 
         __x += res.pixsize[0]
-    ax2.annotate('', 
-                 xy         = (1., -0.5), 
-                 xytext     = (2., -0.5), 
+    ax2.axis('equal')
+    ax2.axis('off')
+    ax3 = fig.add_axes([0.8, 0.35, 0.1, 0.65], sharey = ax2)
+    ax3.annotate('', 
+                 xy         = (0.1, 1.), 
+                 xytext     = (0.1, 2.), 
                  xycoords   = 'data', 
                  textcoords = 'data', 
                  arrowprops = dict(arrowstyle = '|-|'))
-    ax2.annotate('1 ut.', xy = (1.5, -0.3), ha = 'center', va = 'center')
-    ax2.text(0.2, 0.2, 
-             'Point density: %.2f per sq. ut.' % density, 
-             bbox = dict(facecolor = 'white', edgecolor = 'black', boxstyle = 'round'))
-    ax2.axis('equal')
-    ax2.axis('off')
+    ax3.annotate('1 ut.', xy = (0.5, 1.5), ha = 'center', va = 'center')
+    ax3.text(0., 4., 
+             f'Point density: \n{density:.2f} per sq. ut. \n(showing 10%)', )
+            #  bbox = dict(facecolor = 'white', edgecolor = 'black', boxstyle = 'round'))
+    ax3.axis('off')
     fig.savefig('cic_example.png')
     # plt.show()
     return

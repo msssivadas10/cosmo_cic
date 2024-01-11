@@ -137,7 +137,7 @@ class GeneralTest:
                    window         = 'tophat', 
                    mass_function  = 'tinker08', 
                    halo_bias      = 'tinker10', 
-                   cmreln         = 'zheng07',
+                   cmreln         = 'bullock01_powerlaw',
                    halo_profile   = 'nfw',   )
         self.model   = model
         # test halo model

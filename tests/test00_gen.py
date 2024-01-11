@@ -39,7 +39,7 @@ cm.link(power_spectrum = 'eisenstein98_zb',
         window         = 'tophat', 
         mass_function  = 'press74', 
         halo_bias      = 'cole89', 
-        cmreln         = 'zheng07',
+        cmreln         = 'bullock01_powerlaw',
         halo_profile   = 'nfw',   )
 # print(cm)
 
