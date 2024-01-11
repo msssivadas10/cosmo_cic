@@ -750,6 +750,30 @@ class Cosmology:
         res = self.ns + 2.*res
         return res
     
+    def nonlinearWavenumber(self, z: Any) -> Any:
+        r"""
+        Return the non-linear wavenumber at redshift z.
+
+        Parameters
+        ----------
+        z: array_like
+
+        Returns
+        -------
+        res: array_like
+            Wavenumber in h/Mpc.
+
+        """
+        # cost function: function to find root
+        def cost(lnk: float, z: float) -> float:
+            k = np.exp(lnk)
+            res = self.matterPowerSpectrum(k, z) * k**3 / (2*np.pi**2) - 1.
+            return res
+
+        res = self.settings.r_finder.rootof(cost, args = (z, ))
+        res = np.exp(res)
+        return res
+    
     def matterCorrelation(self, 
                           r: Any, 
                           z: Any = 0., 
