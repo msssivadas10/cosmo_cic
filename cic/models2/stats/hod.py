@@ -412,13 +412,13 @@ class Zehavi05(HaloModel):
         self.alpha = alpha
 
     @classmethod
-    def predefined(cls,
-                   mag: float, 
-                   z: float = None, 
-                   cosmology: Cosmology | None = None, 
-                   overdensity: float | None = None, ) -> 'Zheng07':
+    def zehavi05(cls,
+                 mag: float, 
+                 z: float = None, 
+                 cosmology: Cosmology | None = None, 
+                 overdensity: float | None = None, ) -> 'Zheng07':
         r"""
-        Create a halo model using a pre-defined set of parameters.
+        Create a halo model using a pre-defined set of parameters, given in table 3 of Zehavi (2005).
 
         Parameters
         ----------
@@ -431,7 +431,9 @@ class Zehavi05(HaloModel):
             Halo over-density value to use. 
 
         """
+        #-----------------------------------------------
         #            Mag  :   log(Mmin), log(M1), alpha
+        #-----------------------------------------------
         paramList = {-22.0: [ 13.91    , 14.92  , 1.43 ],
                      -21.5: [ 13.27    , 14.60  , 1.94 ],
                      -21.0: [ 12.72    , 14.09  , 1.39 ],
