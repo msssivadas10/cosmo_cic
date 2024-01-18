@@ -407,9 +407,13 @@ class Zehavi05(HaloModel):
                  overdensity: float | None = None, ) -> None:
         super().__init__(cosmology, overdensity)
         # model parameters:
-        self.logm_min   = logm_min   
-        self.logm1 = logm1 
-        self.alpha = alpha
+        self.logm_min = logm_min   
+        self.logm1    = logm1 
+        self.alpha    = alpha
+
+    def __repr__(self) -> str:
+        logm_min, logm1, alpha = self.logm_min, self.logm1, self.alpha
+        return f"HaloModel({logm_min=}, {logm1=}, {alpha=})"
 
     @classmethod
     def zehavi05(cls,
@@ -497,6 +501,10 @@ class Zheng07(HaloModel):
         self.logm0 = logm0
         self.logm1 = logm1 
         self.alpha = alpha
+
+    def __repr__(self) -> str:
+        logm_min, sigma_logm, logm0, logm1, alpha = self.logm_min, self.sigma_logm, self.logm0, self.logm1, self.alpha
+        return f"HaloModel({logm_min=}, {sigma_logm=}, {logm0=}, {logm1=}, {alpha=})"
 
     @classmethod
     def deep2(cls, 
