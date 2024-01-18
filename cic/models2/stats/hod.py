@@ -497,21 +497,91 @@ class Zheng07(HaloModel):
         self.alpha = alpha
 
     @classmethod
-    def predefined(cls,
-                   set_id: str,
-                   mag: float, 
-                   z: float = None, 
-                   cosmology: Cosmology | None = None, 
-                   overdensity: float | None = None, ) -> 'Zheng07':
+    def deep2(cls, 
+              mag: float, 
+              z: float = None, 
+              cosmology: Cosmology | None = None, 
+              overdensity: float | None = None, ) -> 'Zheng07':
         r"""
-        Create a halo model using a pre-defined set of parameters, given by the `set_id`.
+        Create a halo model using a pre-defined set of parameters, given in Table 1 of Zheng (2007), 
+        for DEEP2. Nearest neighbour interpolation is used for values not in the table.
 
         Parameters
         ----------
-        set_id: str
         mag: float
             Absolute magnitude threshold used for sample selection.
         z: float, optional
+            Redshift (average) used for sample selection. This is not used.
+        cosmology: Cosmology
+            Cosmology model to use for other calculations.
+        overdensity: float, None
+            Halo over-density value to use. 
+
+        """
+        #---------------------------------------------------------------
+        #            Mag  :   log(Mmin), sigma, log(M0), log(M1), alpha
+        #---------------------------------------------------------------
+        paramList = {-19.0: [ 11.64    , 0.32 , 12.02  , 12.57  , 0.89 ],  
+                     -19.5: [ 11.83    , 0.30 , 11.53  , 13.02  , 0.97 ],  
+                     -20.0: [ 12.07    , 0.37 ,  9.32  , 13.27  , 1.08 ],  
+                     -20.5: [ 12.63    , 0.82 ,  8.58  , 13.56  , 1.27 ],}
+        # interpolate to the nearest value 
+        params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
+        return cls( *params, cosmology, overdensity )
+    
+    @classmethod
+    def sdss(cls, 
+              mag: float, 
+              z: float = None, 
+              cosmology: Cosmology | None = None, 
+              overdensity: float | None = None, ) -> 'Zheng07':
+        r"""
+        Create a halo model using a pre-defined set of parameters, given in Table 1 of Zheng (2007), 
+        for SDSS. Nearest neighbour interpolation is used for values not in the table.
+
+        Parameters
+        ----------
+        mag: float
+            Absolute magnitude threshold used for sample selection.
+        z: float, optional
+            Redshift (average) used for sample selection. This is not used.
+        cosmology: Cosmology
+            Cosmology model to use for other calculations.
+        overdensity: float, None
+            Halo over-density value to use. 
+
+        """
+        #---------------------------------------------------------------
+        #            Mag  :   log(Mmin), sigma, log(M0), log(M1), alpha
+        # --------------------------------------------------------------
+        paramList = {-18.0: [ 11.53    , 0.25 , 11.20  , 12.40  , 0.83 ],   
+                     -18.5: [ 11.46    , 0.24 , 10.59  , 12.68  , 0.97 ],  
+                     -19.0: [ 11.60    , 0.26 , 11.49  , 12.83  , 1.02 ],  
+                     -19.5: [ 11.75    , 0.28 , 11.69  , 13.01  , 1.06 ],  
+                     -20.0: [ 12.02    , 0.26 , 11.38  , 13.31  , 1.06 ],  
+                     -20.5: [ 12.30    , 0.21 , 11.84  , 13.58  , 1.12 ],  
+                     -21.0: [ 12.79    , 0.39 , 11.92  , 13.94  , 1.15 ],  
+                     -21.5: [ 13.38    , 0.51 , 13.94  , 13.91  , 1.04 ],  
+                     -22.0: [ 14.22    , 0.77 , 14.00  , 14.69  , 0.87 ],}
+        # interpolate to the nearest value 
+        params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
+        return cls( *params, cosmology, overdensity )
+    
+    @classmethod
+    def harikane22(cls, 
+                   mag: float, 
+                   z: float, 
+                   cosmology: Cosmology | None = None, 
+                   overdensity: float | None = None, ) -> 'Zheng07':
+        r"""
+        Create a halo model using a pre-defined set of parameters, given in Table 8 of Harikane (2022). 
+        Nearest neighbour interpolation is used for values not in the table.
+
+        Parameters
+        ----------
+        mag: float
+            Absolute magnitude threshold used for sample selection.
+        z: float
             Redshift (average) used for sample selection.
         cosmology: Cosmology
             Cosmology model to use for other calculations.
@@ -519,81 +589,52 @@ class Zheng07(HaloModel):
             Halo over-density value to use. 
 
         """
-        set_id = set_id.lower()
-
-        # from table 1, DEEP2 in zheng (2007)
-        if set_id == 'zheng07-deep2': 
-            #            Mag  :   log(Mmin), sigma, log(M0), log(M1), alpha
-            paramList = {-19.0: [ 11.64    , 0.32 , 12.02  , 12.57  , 0.89 ],  
-                         -19.5: [ 11.83    , 0.30 , 11.53  , 13.02  , 0.97 ],  
-                         -20.0: [ 12.07    , 0.37 ,  9.32  , 13.27  , 1.08 ],  
-                         -20.5: [ 12.63    , 0.82 ,  8.58  , 13.56  , 1.27 ],}
-            # interpolate to the nearest value 
-            params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
-            return cls( *params, cosmology, overdensity )
-        
-        # from table 1, SDSS in zheng (2007)
-        if set_id == 'zheng07-sdss': 
-            #            Mag  :   log(Mmin), sigma, log(M0), log(M1), alpha
-            paramList = {-18.0: [ 11.53    , 0.25 , 11.20  , 12.40  , 0.83 ],   
-                         -18.5: [ 11.46    , 0.24 , 10.59  , 12.68  , 0.97 ],  
-                         -19.0: [ 11.60    , 0.26 , 11.49  , 12.83  , 1.02 ],  
-                         -19.5: [ 11.75    , 0.28 , 11.69  , 13.01  , 1.06 ],  
-                         -20.0: [ 12.02    , 0.26 , 11.38  , 13.31  , 1.06 ],  
-                         -20.5: [ 12.30    , 0.21 , 11.84  , 13.58  , 1.12 ],  
-                         -21.0: [ 12.79    , 0.39 , 11.92  , 13.94  , 1.15 ],  
-                         -21.5: [ 13.38    , 0.51 , 13.94  , 13.91  , 1.04 ],  
-                         -22.0: [ 14.22    , 0.77 , 14.00  , 14.69  , 0.87 ],}
-            # interpolate to the nearest value 
-            params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
-            return cls( *params, cosmology, overdensity )
-        
-        # from table 8 in harikane (2022)
-        if set_id == 'harikane22': 
-            #            z  :  mag  :   log(Mmin), log(M1)
-            paramList = {1.7: {-20.5: [ 12.46    , 14.18 ],
-                               -20.0: [ 12.09    , 13.47 ],
-                               -19.5: [ 11.79    , 12.86 ],
-                               -19.0: [ 11.55    , 12.48 ],
-                               -18.5: [ 11.33    , 12.28 ],
-                               -18.0: [ 11.16    , 12.08 ],}, 
-                         2.2: {-21.0: [ 12.72    , 15.91 ],
-                               -20.5: [ 12.30    , 13.92 ],
-                               -20.0: [ 11.95    , 13.23 ],
-                               -19.5: [ 11.68    , 12.62 ],
-                               -19.0: [ 11.45    , 12.23 ],
-                               -18.5: [ 11.26    , 11.94 ],}, 
-                         2.9: {-21.5: [ 12.55    , 15.39 ],
-                               -21.0: [ 12.19    , 13.80 ],
-                               -20.5: [ 11.92    , 13.12 ],
-                               -20.0: [ 11.71    , 12.55 ],
-                               -19.5: [ 11.55    , 12.20 ],
-                               -19.0: [ 11.36    , 11.84 ],},
-                         3.8: {-22.5: [ 13.08    , 15.25 ],
-                               -22.0: [ 12.71    , 14.80 ],
-                               -21.5: [ 12.32    , 13.96 ],
-                               -21.0: [ 11.98    , 13.23 ],
-                               -20.5: [ 11.66    , 12.24 ],
-                               -20.0: [ 11.48    , 11.94 ],},
-                         4.9: {-22.9: [ 12.95    , 16.65 ],
-                               -22.4: [ 12.60    , 15.70 ],
-                               -21.9: [ 12.29    , 14.63 ],
-                               -21.4: [ 12.00    , 13.45 ],
-                               -20.9: [ 11.76    , 12.57 ],
-                               -20.4: [ 11.57    , 11.86 ],},
-                         5.9: {-22.2: [ 12.33    , 14.67 ],
-                               -21.7: [ 12.09    , 13.73 ],
-                               -21.2: [ 11.78    , 12.93 ],},}
-            # select parameters for nearest z
-            paramList = paramList[ min( paramList, key = lambda __z: abs(__z - z) ) ]
-            # interpolate to the nearest magnitude value 
-            params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
-            # include other parameters:
-            #          log(Mmin), sigma = 0.2*sqrt(2), log(M0)       , log(M1)  , alpha
-            params = [ params[0], 0.28284271247461906, -0.5*params[0], params[1], 1.0 ]
-            return cls( *params, cosmology, overdensity )
-        
-        raise ValueError(f"cannot find values for id: '{ set_id }' with mag={ mag } and z={ z }")
+        #----------------------------------------------
+        #            z  :  mag  :   log(Mmin), log(M1)
+        #----------------------------------------------
+        paramList = {1.7: {-20.5: [ 12.46    , 14.18 ],
+                           -20.0: [ 12.09    , 13.47 ],
+                           -19.5: [ 11.79    , 12.86 ],
+                           -19.0: [ 11.55    , 12.48 ],
+                           -18.5: [ 11.33    , 12.28 ],
+                           -18.0: [ 11.16    , 12.08 ],}, 
+                     2.2: {-21.0: [ 12.72    , 15.91 ],
+                           -20.5: [ 12.30    , 13.92 ],
+                           -20.0: [ 11.95    , 13.23 ],
+                           -19.5: [ 11.68    , 12.62 ],
+                           -19.0: [ 11.45    , 12.23 ],
+                           -18.5: [ 11.26    , 11.94 ],}, 
+                     2.9: {-21.5: [ 12.55    , 15.39 ],
+                           -21.0: [ 12.19    , 13.80 ],
+                           -20.5: [ 11.92    , 13.12 ],
+                           -20.0: [ 11.71    , 12.55 ],
+                           -19.5: [ 11.55    , 12.20 ],
+                           -19.0: [ 11.36    , 11.84 ],},
+                     3.8: {-22.5: [ 13.08    , 15.25 ],
+                           -22.0: [ 12.71    , 14.80 ],
+                           -21.5: [ 12.32    , 13.96 ],
+                           -21.0: [ 11.98    , 13.23 ],
+                           -20.5: [ 11.66    , 12.24 ],
+                           -20.0: [ 11.48    , 11.94 ],},
+                     4.9: {-22.9: [ 12.95    , 16.65 ],
+                           -22.4: [ 12.60    , 15.70 ],
+                           -21.9: [ 12.29    , 14.63 ],
+                           -21.4: [ 12.00    , 13.45 ],
+                           -20.9: [ 11.76    , 12.57 ],
+                           -20.4: [ 11.57    , 11.86 ],},
+                     5.9: {-22.2: [ 12.33    , 14.67 ],
+                           -21.7: [ 12.09    , 13.73 ],
+                           -21.2: [ 11.78    , 12.93 ],},}
+        # select parameters for nearest z
+        paramList = paramList[ min( paramList, key = lambda __z: abs(__z - z) ) ]
+        # interpolate to the nearest magnitude value 
+        params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
+        # add other parameters:
+        #--------------------------------------------------------------------------
+        #          log(Mmin), sigma = 0.2*sqrt(2), log(M0)       , log(M1)  , alpha
+        #--------------------------------------------------------------------------
+        params = [ params[0], 0.28284271247461906, -0.5*params[0], params[1], 1.0 ]
+        return cls( *params, cosmology, overdensity )
 
     def centralCount(self, m: Any) -> Any:
         res = ( np.log(m) - self.logm_min ) / self.sigma_logm
