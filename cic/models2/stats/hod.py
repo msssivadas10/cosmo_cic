@@ -589,8 +589,8 @@ class Zheng07(HaloModel):
             # interpolate to the nearest magnitude value 
             params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
             # include other parameters:
-            #          log(Mmin), sigma, log(M0)       , log(M1)  , alpha
-            params = [ params[0], 0.2  , -0.5*params[0], params[1], 1.0 ]
+            #          log(Mmin), sigma = 0.2*sqrt(2), log(M0)       , log(M1)  , alpha
+            params = [ params[0], 0.28284271247461906, -0.5*params[0], params[1], 1.0 ]
             return cls( *params, cosmology, overdensity )
         
         raise ValueError(f"cannot find values for id: '{ set_id }' with mag={ mag } and z={ z }")
