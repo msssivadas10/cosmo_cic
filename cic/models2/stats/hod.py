@@ -81,43 +81,6 @@ class HaloModel:
             # calculate the average density
             _ = self.avarageGalaxyDensity(recalculate = True, min = z_min, max = z_max)
         return
-    
-    def avarageGalaxyDensity(self, 
-                             recalculate: bool = False, 
-                             min: float = 0., 
-                             max: float = np.inf, ) -> float:
-        r"""
-        Calculate the average galaxy density over the redshift range.
-
-        Parameters
-        ----------
-        recalculate: bool, default = False
-            If true, calculate the value, otherwise return the previous value.
-        min, max: float, optional
-            Redshift range to average. Default is :math:`[0, \infty]`.
-
-        Returns
-        -------
-        res: float 
-
-        """
-        if self.z_distribution is None:
-            raise ValueError("no redshift distribution is linked to model")
-        if self.cosmology is None:
-            raise ValueError("no cosmology model is available for normalising")
-        if recalculate:
-            # generating integration points
-            pts, wts = self.settings.z_quad.nodes, self.settings.z_quad.weights
-            min, max = (min + 1.)**-1, (max + 1.)**-1
-            scale    = 0.5*( max - min )
-            res, wts = (pts + 1.) * scale + min, wts * scale
-            non_zero = ( res > 0.) 
-            res, wts = 1./res[non_zero] - 1., wts[non_zero]
-            # integration
-            wts = (1. + res)**2 * self.z_distribution( res, self.cosmology ) * self.cosmology.comovingVolumeElement( res ) * wts
-            res = self.galaxyDensity( res )
-            self._avarageGalaxyDensity = np.sum( res * wts, axis = 0 ) / np.sum( wts, axis = 0 )
-        return self._avarageGalaxyDensity
 
     def centralCount(self, m: Any) -> Any:
         r"""
@@ -277,6 +240,43 @@ class HaloModel:
         # logspace integration
         res = np.sum( res * wts, axis = 0 )
         return res
+    
+    def avarageGalaxyDensity(self, 
+                             recalculate: bool = False, 
+                             min: float = 0., 
+                             max: float = np.inf, ) -> float:
+        r"""
+        Calculate the average galaxy density over the redshift range.
+
+        Parameters
+        ----------
+        recalculate: bool, default = False
+            If true, calculate the value, otherwise return the previous value.
+        min, max: float, optional
+            Redshift range to average. Default is :math:`[0, \infty]`.
+
+        Returns
+        -------
+        res: float 
+
+        """
+        if self.z_distribution is None:
+            raise ValueError("no redshift distribution is linked to model")
+        if self.cosmology is None:
+            raise ValueError("no cosmology model is available for normalising")
+        if recalculate:
+            # generating integration points
+            pts, wts = self.settings.z_quad.nodes, self.settings.z_quad.weights
+            min, max = (min + 1.)**-1, (max + 1.)**-1
+            scale    = 0.5*( max - min )
+            res, wts = (pts + 1.) * scale + min, wts * scale
+            non_zero = ( res > 0.) 
+            res, wts = 1./res[non_zero] - 1., wts[non_zero]
+            # integration
+            wts = (1. + res)**2 * self.z_distribution( res, self.cosmology ) * self.cosmology.comovingVolumeElement( res ) * wts
+            res = self.galaxyDensity( res )
+            self._avarageGalaxyDensity = np.sum( res * wts, axis = 0 ) / np.sum( wts, axis = 0 )
+        return self._avarageGalaxyDensity
 
     def averageHaloMass(self, z: Any) -> Any:
         r"""
