@@ -14,9 +14,20 @@ class HaloError(Exception):
 class HaloModel:
     r"""
     Base class representing a halo model.
+
+    Parameters
+    ----------
+    cosmology: Cosmology
+        Cosmology model to use for other calculations.
+    overdensity: float, None
+        Halo over-density value to use.
+    z_distribution: callable
+        Redshift distribution function. Must be a function of redshift z and the cosmology 
+        model, returning a float (or an array).
+    
     """
 
-    __slots__ = 'cosmology', 'overdensity', 'settings', 'z_distribution', 'avarageGalaxyDensity'
+    __slots__ = 'cosmology', 'overdensity', 'settings', 'z_distribution', '_avarageGalaxyDensity'
 
     def __init__(self, 
                  cosmology: Cosmology | None = None, 
@@ -27,50 +38,86 @@ class HaloModel:
         self.cosmology = None
         self.z_distribution = None
         self.overdensity = overdensity
-        self.avarageGalaxyDensity = 1.
+        self._avarageGalaxyDensity = -1.
         # link cosmology model and redshift distribution
-        self.link(cosmology, z_distribution)
+        self.setCosmology(cosmology)
+        self.setRedshiftDistribution(z_distribution)
 
-    def link(self, 
-             cosmology: Cosmology = None, 
-             z_distribution: Callable[[Any, Cosmology], Any] = None, ) -> None:
+    def setCosmology(self, cosmology: Cosmology = None, ) -> None:
         r"""
         Link a cosmology model.
+
+        Parameters
+        ----------
+        cosmology: Cosmology
+
         """
-        # setting cosmology
         if cosmology is not None:
             if not isinstance(cosmology, Cosmology):
                 raise TypeError("model must be a 'Cosmology' object")
             self.cosmology = cosmology
-        # setting redshift distribution
+        return
+    
+    def setRedshiftDistribution(self, 
+                                z_distribution: Callable[[Any, Cosmology], Any] = None, 
+                                z_min: float = 0.0,
+                                z_max: float = np.inf, ) -> None:
+        r"""
+        Link a redshift distribution.
+
+        Parameters
+        ----------
+        z_distribution: callable
+            Redshift distribution function. Must be a function of redshift z and the cosmology 
+            model, returning a float (or an array).
+        z_min, z_max: float, optional
+            Redshift range to average. Default is :math:`[0, \infty]`.
+
+        """
         if z_distribution is not None:
             if not callable(z_distribution):
                 raise TypeError("z_distribution must be a callable object")
             self.z_distribution = z_distribution
-            self.normalize()
+            # calculate the average density
+            _ = self.avarageGalaxyDensity(recalculate = True, min = z_min, max = z_max)
         return
     
-    def normalize(self, 
-                  min: float = 0., 
-                  max: float = np.inf, ) -> None:
+    def avarageGalaxyDensity(self, 
+                             recalculate: bool = False, 
+                             min: float = 0., 
+                             max: float = np.inf, ) -> float:
         r"""
         Calculate the average galaxy density over the redshift range.
+
+        Parameters
+        ----------
+        recalculate: bool, default = False
+            If true, calculate the value, otherwise return the previous value.
+        min, max: float, optional
+            Redshift range to average. Default is :math:`[0, \infty]`.
+
+        Returns
+        -------
+        res: float 
+
         """
-        if self.z_distribution is None: return
+        if self.z_distribution is None:
+            raise ValueError("no redshift distribution is linked to model")
         if self.cosmology is None:
             raise ValueError("no cosmology model is available for normalising")
-        # generating integration points
-        pts, wts = self.settings.z_quad.nodes, self.settings.z_quad.weights
-        min, max = (min + 1.)**-1, (max + 1.)**-1
-        scale    = 0.5*( max - min )
-        res, wts = (pts + 1.) * scale + min, wts * scale
-        non_zero = ( res > 0.) 
-        res, wts = 1./res[non_zero] - 1., wts[non_zero]
-        # integration
-        wts = self.z_distribution( res, self.cosmology ) * self.cosmology.comovingVolumeElement( res ) * wts
-        res = self.galaxyDensity( res )
-        self.avarageGalaxyDensity = np.sum( res * wts, axis = 0 ) / np.sum( wts, axis = 0 )
-        return
+        if recalculate:
+            # generating integration points
+            pts, wts = self.settings.z_quad.nodes, self.settings.z_quad.weights
+            min, max = (min + 1.)**-1, (max + 1.)**-1
+            scale    = 0.5*( max - min )
+            res, wts = (pts + 1.) * scale + min, wts * scale
+            non_zero = ( res > 0.) 
+            res, wts = 1./res[non_zero] - 1., wts[non_zero]
+            # integration
+            wts = (1. + res)**2 * self.z_distribution( res, self.cosmology ) * self.cosmology.comovingVolumeElement( res ) * wts
+            res = self.galaxyDensity( res )
+            self._avarageGalaxyDensity = np.sum( res * wts, axis = 0 ) / np.sum( wts, axis = 0 )
+        return self._avarageGalaxyDensity
 
     def centralCount(self, m: Any) -> Any:
         r"""
@@ -254,7 +301,7 @@ class HaloModel:
         res = m * self.totalCount(m) * self.massFunction(m, z, 'dndlnm')
         # logspace integration
         res = np.sum( res * wts, axis = 0 )
-        return res / self.avarageGalaxyDensity
+        return res / self.avarageGalaxyDensity()
     
     def effectiveBias(self, z: Any) -> Any:
         r"""
@@ -279,7 +326,7 @@ class HaloModel:
         res = self.biasFunction(m, z) * self.totalCount(m) * self.massFunction(m, z, 'dndlnm') 
         # logspace integration
         res = np.sum( res * wts, axis = 0 )
-        return res / self.avarageGalaxyDensity
+        return res / self.avarageGalaxyDensity()
     
     def galaxyPowerSpectrum(self, 
                             k: Any, 
@@ -333,7 +380,7 @@ class HaloModel:
             res2 = np.sum( res2 * wts, axis = 0 )
             res += res2**2 * self.matterPowerSpectrum(k, z) 
         # normalization
-        res = res / self.avarageGalaxyDensity**2
+        res = res / self.avarageGalaxyDensity()**2
         return res
     
     def galaxyCorrelation(self, 
@@ -423,6 +470,9 @@ class Zehavi05(HaloModel):
         Cosmology model to use for other calculations.
     overdensity: float, None
         Halo over-density value to use.
+    z_distribution: callable
+        Redshift distribution function. Must be a function of redshift z and the cosmology 
+        model, returning a float (or an array).
     
     **Note**: log with base 10 is used here.
 
@@ -435,8 +485,9 @@ class Zehavi05(HaloModel):
                  logm1:float, 
                  alpha: float, 
                  cosmology: Cosmology | None = None, 
-                 overdensity: float | None = None, ) -> None:
-        super().__init__(cosmology, overdensity)
+                 overdensity: float | None = None, 
+                 z_distribution: Callable[[Any, Cosmology], Any] = None, ) -> None:
+        super().__init__(cosmology, overdensity, z_distribution)
         # model parameters:
         self.logm_min = logm_min   
         self.logm1    = logm1 
@@ -451,7 +502,8 @@ class Zehavi05(HaloModel):
                  mag: float, 
                  z: float = None, 
                  cosmology: Cosmology | None = None, 
-                 overdensity: float | None = None, ) -> 'Zheng07':
+                 overdensity: float | None = None, 
+                 z_distribution: Callable[[Any, Cosmology], Any] = None, ) -> 'Zheng07':
         r"""
         Create a halo model using a pre-defined set of parameters, given in table 3 of Zehavi (2005).
 
@@ -464,6 +516,9 @@ class Zehavi05(HaloModel):
             Cosmology model to use for other calculations.
         overdensity: float, None
             Halo over-density value to use. 
+        z_distribution: callable
+            Redshift distribution function. Must be a function of redshift z and the cosmology 
+            model, returning a float (or an array).
 
         """
         #-----------------------------------------------
@@ -480,7 +535,7 @@ class Zehavi05(HaloModel):
                      -18.0: [ 11.27    , 12.57  , 0.92 ],}
         # interpolate to the nearest value 
         params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
-        return cls( *params, cosmology, overdensity )
+        return cls( *params, cosmology, overdensity, z_distribution )
 
     def centralCount(self, m: Any) -> Any:
         res = np.log10(m) - self.logm_min
@@ -510,6 +565,9 @@ class Zheng07(HaloModel):
         Cosmology model to use for other calculations.
     overdensity: float, None
         Halo over-density value to use.
+    z_distribution: callable
+        Redshift distribution function. Must be a function of redshift z and the cosmology 
+        model, returning a float (or an array).
 
     """
 
@@ -522,8 +580,9 @@ class Zheng07(HaloModel):
                  logm1:float, 
                  alpha: float, 
                  cosmology: Cosmology | None = None, 
-                 overdensity: float | None = None, ) -> None:
-        super().__init__(cosmology, overdensity)
+                 overdensity: float | None = None, 
+                 z_distribution: Callable[[Any, Cosmology], Any] = None, ) -> None:
+        super().__init__(cosmology, overdensity, z_distribution)
         # model parameters:
         # - central galaxy:
         self.logm_min   = logm_min   
@@ -542,7 +601,8 @@ class Zheng07(HaloModel):
               mag: float, 
               z: float = None, 
               cosmology: Cosmology | None = None, 
-              overdensity: float | None = None, ) -> 'Zheng07':
+              overdensity: float | None = None, 
+              z_distribution: Callable[[Any, Cosmology], Any] = None, ) -> 'Zheng07':
         r"""
         Create a halo model using a pre-defined set of parameters, given in Table 1 of Zheng (2007), 
         for DEEP2. Nearest neighbour interpolation is used for values not in the table.
@@ -557,6 +617,9 @@ class Zheng07(HaloModel):
             Cosmology model to use for other calculations.
         overdensity: float, None
             Halo over-density value to use. 
+        z_distribution: callable
+            Redshift distribution function. Must be a function of redshift z and the cosmology 
+            model, returning a float (or an array).
 
         """
         #---------------------------------------------------------------
@@ -568,14 +631,15 @@ class Zheng07(HaloModel):
                      -20.5: [ 12.63    , 0.82 ,  8.58  , 13.56  , 1.27 ],}
         # interpolate to the nearest value 
         params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
-        return cls( *params, cosmology, overdensity )
+        return cls( *params, cosmology, overdensity, z_distribution )
     
     @classmethod
     def sdss(cls, 
               mag: float, 
               z: float = None, 
               cosmology: Cosmology | None = None, 
-              overdensity: float | None = None, ) -> 'Zheng07':
+              overdensity: float | None = None, 
+              z_distribution: Callable[[Any, Cosmology], Any] = None, ) -> 'Zheng07':
         r"""
         Create a halo model using a pre-defined set of parameters, given in Table 1 of Zheng (2007), 
         for SDSS. Nearest neighbour interpolation is used for values not in the table.
@@ -590,6 +654,9 @@ class Zheng07(HaloModel):
             Cosmology model to use for other calculations.
         overdensity: float, None
             Halo over-density value to use. 
+        z_distribution: callable
+            Redshift distribution function. Must be a function of redshift z and the cosmology 
+            model, returning a float (or an array).
 
         """
         #---------------------------------------------------------------
@@ -606,14 +673,15 @@ class Zheng07(HaloModel):
                      -22.0: [ 14.22    , 0.77 , 14.00  , 14.69  , 0.87 ],}
         # interpolate to the nearest value 
         params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
-        return cls( *params, cosmology, overdensity )
+        return cls( *params, cosmology, overdensity, z_distribution )
     
     @classmethod
     def harikane22(cls, 
                    mag: float, 
                    z: float, 
                    cosmology: Cosmology | None = None, 
-                   overdensity: float | None = None, ) -> 'Zheng07':
+                   overdensity: float | None = None, 
+                   z_distribution: Callable[[Any, Cosmology], Any] = None, ) -> 'Zheng07':
         r"""
         Create a halo model using a pre-defined set of parameters, given in Table 8 of Harikane (2022). 
         Nearest neighbour interpolation is used for values not in the table.
@@ -628,6 +696,9 @@ class Zheng07(HaloModel):
             Cosmology model to use for other calculations.
         overdensity: float, None
             Halo over-density value to use. 
+        z_distribution: callable
+            Redshift distribution function. Must be a function of redshift z and the cosmology 
+            model, returning a float (or an array).
 
         """
         #----------------------------------------------
@@ -675,7 +746,7 @@ class Zheng07(HaloModel):
         #          log(Mmin), sigma = 0.2*sqrt(2), log(M0)       , log(M1)  , alpha
         #--------------------------------------------------------------------------
         params = [ params[0], 0.28284271247461906, -0.5*params[0], params[1], 1.0 ]
-        return cls( *params, cosmology, overdensity )
+        return cls( *params, cosmology, overdensity, z_distribution )
 
     def centralCount(self, m: Any) -> Any:
         res = ( np.log(m) - self.logm_min ) / self.sigma_logm
