@@ -2,7 +2,7 @@
 
 import numpy as np
 from scipy.special import hyp0f1, erf 
-from typing import Any
+from typing import Any, Callable
 from .._base import Cosmology
 from ..utils.objects import Settings
 
@@ -16,25 +16,60 @@ class HaloModel:
     Base class representing a halo model.
     """
 
-    __slots__ = 'cosmology', 'overdensity', 'settings', 
+    __slots__ = 'cosmology', 'overdensity', 'settings', 'z_distribution', 'avarageGalaxyDensity'
 
     def __init__(self, 
                  cosmology: Cosmology | None = None, 
-                 overdensity: float | None = None, ) -> None:
-        # cosmology model to use
-        self.link(cosmology)
-        # halo overdensity
-        self.overdensity = overdensity
+                 overdensity: float | None = None, 
+                 z_distribution: Callable[[Any, Cosmology], Any] = None, ) -> None:
         # general settings table
         self.settings = Settings()
+        self.cosmology = None
+        self.z_distribution = None
+        self.overdensity = overdensity
+        self.avarageGalaxyDensity = 1.
+        # link cosmology model and redshift distribution
+        self.link(cosmology, z_distribution)
 
-    def link(self, model: Cosmology) -> None:
+    def link(self, 
+             cosmology: Cosmology = None, 
+             z_distribution: Callable[[Any, Cosmology], Any] = None, ) -> None:
         r"""
         Link a cosmology model.
         """
-        if model is not None and not isinstance(model, Cosmology):
-            raise TypeError("model must be a 'Cosmology' object")
-        self.cosmology = model
+        # setting cosmology
+        if cosmology is not None:
+            if not isinstance(cosmology, Cosmology):
+                raise TypeError("model must be a 'Cosmology' object")
+            self.cosmology = cosmology
+        # setting redshift distribution
+        if z_distribution is not None:
+            if not callable(z_distribution):
+                raise TypeError("z_distribution must be a callable object")
+            self.z_distribution = z_distribution
+            self.normalize()
+        return
+    
+    def normalize(self, 
+                  min: float = 0., 
+                  max: float = np.inf, ) -> None:
+        r"""
+        Calculate the average galaxy density over the redshift range.
+        """
+        if self.z_distribution is None: return
+        if self.cosmology is None:
+            raise ValueError("no cosmology model is available for normalising")
+        # generating integration points
+        pts, wts = self.settings.z_quad.nodes, self.settings.z_quad.weights
+        min, max = (min + 1.)**-1, (max + 1.)**-1
+        scale    = 0.5*( max - min )
+        res, wts = (pts + 1.) * scale + min, wts * scale
+        non_zero = ( res > 0.) 
+        res, wts = 1./res[non_zero] - 1., wts[non_zero]
+        # integration
+        wts = self.z_distribution( res, self.cosmology ) * self.cosmology.comovingVolumeElement( res ) * wts
+        res = self.galaxyDensity( res )
+        self.avarageGalaxyDensity = np.sum( res * wts, axis = 0 ) / np.sum( wts, axis = 0 )
         return
 
     def centralCount(self, m: Any) -> Any:
@@ -216,12 +251,10 @@ class HaloModel:
         m   = np.reshape(np.exp(pts), shape) 
         wts = np.reshape(wts, shape)
         # function to integrate
-        res1 = self.totalCount(m) * self.massFunction(m, z, 'dndlnm') # for normalization
-        res2 = m * res1
+        res = m * self.totalCount(m) * self.massFunction(m, z, 'dndlnm')
         # logspace integration
-        res2 = np.sum( res2 * wts, axis = 0 )
-        res1 = np.sum( res1 * wts, axis = 0 )
-        return res2 / res1
+        res = np.sum( res * wts, axis = 0 )
+        return res / self.avarageGalaxyDensity
     
     def effectiveBias(self, z: Any) -> Any:
         r"""
@@ -243,12 +276,10 @@ class HaloModel:
         m   = np.reshape(np.exp(pts), shape) 
         wts = np.reshape(wts, shape)
         # function to integrate
-        res1 = self.totalCount(m) * self.massFunction(m, z, 'dndlnm') # for normalization
-        res2 = self.biasFunction(m, z) * res1
+        res = self.biasFunction(m, z) * self.totalCount(m) * self.massFunction(m, z, 'dndlnm') 
         # logspace integration
-        res2 = np.sum( res2 * wts, axis = 0 )
-        res1 = np.sum( res1 * wts, axis = 0 )
-        return res2 / res1
+        res = np.sum( res * wts, axis = 0 )
+        return res / self.avarageGalaxyDensity
     
     def galaxyPowerSpectrum(self, 
                             k: Any, 
@@ -302,7 +333,7 @@ class HaloModel:
             res2 = np.sum( res2 * wts, axis = 0 )
             res += res2**2 * self.matterPowerSpectrum(k, z) 
         # normalization
-        res = res / self.galaxyDensity(z)**2
+        res = res / self.avarageGalaxyDensity**2
         return res
     
     def galaxyCorrelation(self, 
