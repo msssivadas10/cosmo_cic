@@ -433,6 +433,26 @@ class Cosmology:
         res = Cosmology.UNIT_DISTANCE * np.sum( res*wts, axis = 0 )
         return res
     
+    def comovingVolumeElement(self, 
+                              z: Any, ) -> Any:
+        r"""
+        Return the comoving volume element corresponding to redshift z.
+
+        .. math::
+            \frac{dV}{dz} = 4\pi r^2 \frac{dr}{dz}
+
+        Parameters
+        ----------
+        z: array_like
+
+        Returns
+        -------
+        res: array_like
+
+        """
+        res = 4*np.pi * self.comovingDistance(z, deriv = 0)**2 * self.comovingDistance(z, deriv = 1)
+        return res
+    
     def comovingCoordinate(self, 
                            z: Any,
                            deriv: int = 0, ) -> Any:
@@ -553,6 +573,52 @@ class Cosmology:
             return np.multiply(value, dist) * UNIT_ARCSEC_IN_RADIAN
         # physical size (Mpc/h) to angular size (arcsec)
         return np.divide(value, dist) / UNIT_ARCSEC_IN_RADIAN
+    
+    def distanceModulus(self, 
+                        z: Any, ) -> Any:
+        r"""
+        Return the distance magnitude corresponding to redshift z.
+
+        .. math::
+            \mu = 5\log_10 \frac{d_L ~({\rm pc})}{10 ~({\rm pc})}
+
+        Parameters
+        ----------
+        z: array_like
+
+        Returns
+        -------
+        res: array_like
+
+        """
+        res = self.luminocityDistance(z, deriv = 0) / self.h # luminocity distance in Mpc
+        res = 5*np.log10( res )
+        return res
+    
+    def absoluteMagnitude(self, 
+                          m: Any, 
+                          z: Any, 
+                          k_correction: Any = None, ) -> Any:
+        r"""
+        Return the absolute magnitude corresponding to a relative magnitude m and redshift z.
+
+        Parameters
+        ----------
+        m: array_like
+        z: array_like
+        k_correction: array_like, optional
+            K-correction. If given, must be broadcastable with m and z.
+
+        Returns
+        -------
+        res: array_like
+            Absolute magnitude.
+
+        """
+        res = np.asfarray(m) + self.distanceModulus(z)
+        if k_correction is not None:
+            res = res + np.asfarray(k_correction)
+        return res
     
     ###########################################################################################################
     #                                       Time and age calculations                                         #
