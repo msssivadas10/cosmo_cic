@@ -27,21 +27,25 @@ class HaloModel:
     
     """
 
-    __slots__ = 'cosmology', 'overdensity', 'settings', 'z_distribution', '_avarageGalaxyDensity'
+    __slots__ = ('cosmology', 'overdensity', 'settings', 'z_distribution', 'z_range', 'z_norm')
 
     def __init__(self, 
                  cosmology: Cosmology | None = None, 
                  overdensity: float | None = None, 
-                 z_distribution: Callable[[Any, Cosmology], Any] = None, ) -> None:
+                 z_distribution: Callable[[Any, Cosmology], Any] = None, 
+                 z_min: float = 0.0,
+                 z_max: float = np.inf, ) -> None:
         # general settings table
         self.settings = Settings()
+        self.overdensity = overdensity
+        # defaults
         self.cosmology = None
         self.z_distribution = None
-        self.overdensity = overdensity
-        self._avarageGalaxyDensity = -1.
+        self.z_range        = (z_min, z_max)
+        self.z_norm         = 1.0
         # link cosmology model and redshift distribution
         self.setCosmology(cosmology)
-        self.setRedshiftDistribution(z_distribution)
+        self.setRedshiftDistribution(z_distribution, z_min, z_max)
 
     def setCosmology(self, cosmology: Cosmology = None, ) -> None:
         r"""
@@ -78,8 +82,7 @@ class HaloModel:
             if not callable(z_distribution):
                 raise TypeError("z_distribution must be a callable object")
             self.z_distribution = z_distribution
-            # calculate the average density
-            _ = self.avarageGalaxyDensity(recalculate = True, min = z_min, max = z_max)
+            self.z_range = ( z_min, z_max )
         return
 
     def centralCount(self, m: Any) -> Any:
@@ -260,23 +263,23 @@ class HaloModel:
         res: float 
 
         """
-        if self.z_distribution is None:
-            raise ValueError("no redshift distribution is linked to model")
-        if self.cosmology is None:
-            raise ValueError("no cosmology model is available for normalising")
-        if recalculate:
-            # generating integration points
-            pts, wts = self.settings.z_quad.nodes, self.settings.z_quad.weights
-            min, max = (min + 1.)**-1, (max + 1.)**-1
-            scale    = 0.5*( max - min )
-            res, wts = (pts + 1.) * scale + min, wts * scale
-            non_zero = ( res > 0.) 
-            res, wts = 1./res[non_zero] - 1., wts[non_zero]
-            # integration
-            wts = (1. + res)**2 * self.z_distribution( res, self.cosmology ) * self.cosmology.comovingVolumeElement( res ) * wts
-            res = self.galaxyDensity( res )
-            self._avarageGalaxyDensity = np.sum( res * wts, axis = 0 ) / np.sum( wts, axis = 0 )
-        return self._avarageGalaxyDensity
+        # if self.z_distribution is None:
+        #     raise ValueError("no redshift distribution is linked to model")
+        # if self.cosmology is None:
+        #     raise ValueError("no cosmology model is available for normalising")
+        # if recalculate:
+        #     # generating integration points
+        #     pts, wts = self.settings.z_quad.nodes, self.settings.z_quad.weights
+        #     min, max = (min + 1.)**-1, (max + 1.)**-1
+        #     scale    = 0.5*( max - min )
+        #     res, wts = (pts + 1.) * scale + min, wts * scale
+        #     non_zero = ( res > 0.) 
+        #     res, wts = 1./res[non_zero] - 1., wts[non_zero]
+        #     # integration
+        #     wts = (1. + res)**2 * self.z_distribution( res, self.cosmology ) * self.cosmology.comovingVolumeElement( res ) * wts
+        #     res = self.galaxyDensity( res )
+        #     self._avarageGalaxyDensity = np.sum( res * wts, axis = 0 ) / np.sum( wts, axis = 0 )
+        # return self._avarageGalaxyDensity
 
     def averageHaloMass(self, z: Any) -> Any:
         r"""
@@ -298,10 +301,11 @@ class HaloModel:
         m   = np.reshape(np.exp(pts), shape) 
         wts = np.reshape(wts, shape)
         # function to integrate
-        res = m * self.totalCount(m) * self.massFunction(m, z, 'dndlnm')
+        res1 = self.totalCount(m) * self.massFunction(m, z, 'dndlnm')
+        res  = m * res1
         # logspace integration
-        res = np.sum( res * wts, axis = 0 )
-        return res / self.avarageGalaxyDensity()
+        res = np.sum( res * wts, axis = 0 ) / np.sum( res1 * wts, axis = 0 )
+        return res
     
     def effectiveBias(self, z: Any) -> Any:
         r"""
@@ -323,10 +327,11 @@ class HaloModel:
         m   = np.reshape(np.exp(pts), shape) 
         wts = np.reshape(wts, shape)
         # function to integrate
-        res = self.biasFunction(m, z) * self.totalCount(m) * self.massFunction(m, z, 'dndlnm') 
+        res1 = self.totalCount(m) * self.massFunction(m, z, 'dndlnm')
+        res  = self.biasFunction(m, z) * res1 
         # logspace integration
-        res = np.sum( res * wts, axis = 0 )
-        return res / self.avarageGalaxyDensity()
+        res = np.sum( res * wts, axis = 0 ) / np.sum( res1 * wts, axis = 0 )
+        return res
     
     def galaxyPowerSpectrum(self, 
                             k: Any, 
@@ -380,7 +385,7 @@ class HaloModel:
             res2 = np.sum( res2 * wts, axis = 0 )
             res += res2**2 * self.matterPowerSpectrum(k, z) 
         # normalization
-        res = res / self.avarageGalaxyDensity()**2
+        res = res / self.galaxyDensity()**2
         return res
     
     def galaxyCorrelation(self, 
