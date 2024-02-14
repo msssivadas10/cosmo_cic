@@ -19,20 +19,40 @@ cm.link(power_spectrum = 'eisenstein98_zb',
         halo_profile   = 'nfw',   )
 # print( cm )
 
-Muv  = -20.5
-zbar = 1.7
-hm = Zheng07.harikane22(Muv, zbar, cm, 200.)
-print( hm )
+def test1():
+    Muv  = -20.5
+    zbar = 1.7
+    hm = Zheng07.harikane22(Muv, zbar, cm, 200.)
+    # print( hm )
 
-print( ( hm.effectiveBias( zbar ) ) )
-x = 12.72
-# print( 3.16 * x - 24.33 )
+    plt.figure()
+    x = np.logspace(6, 18, 11)
+    plt.loglog()
+    y = cm.haloMassFunction(x, zbar, 200.)
+    plt.plot(x, y, '-')
+    y = hm.massFunction(x, zbar)
+    plt.plot(x, y, 's')
+    plt.show()
+    return
 
-# plt.figure()
-# x = np.logspace(6, 18, 11)
-# plt.loglog()
-# y = cm.haloMassFunction(x, zbar, 200.)
-# plt.plot(x, y, '-')
-# y = hm.massFunction(x, zbar)
-# plt.plot(x, y, 's')
-# plt.show()
+def test2():
+    from scipy.interpolate import CubicSpline
+    hm = Zheng07.harikane22(mag = -22.5, 
+                            z   =  3.8, 
+                            cosmology   = cm, 
+                            overdensity = 200, )
+    # for z = 3.8 (~ 4)
+    complteness_table = CubicSpline([3.00, 3.20, 3.40, 3.60, 4.00, 4.20, 4.40, 4.50],
+                                    [0.00, 0.02, 0.55, 0.75, 0.60, 0.55, 0.05, 0.00])
+    hm.setRedshiftDistribution(lambda z, cm: complteness_table( z ), 
+                               z_min = 3.0,
+                               z_max = 4.5, )
+    print(f"log Mmin: { hm.logm_min :10.3f}")
+    print(f"log Msat: { hm.logm1    :10.3f}")
+    print(f"Eff. bg : { hm.effectiveBias() :10.3f}")
+    print(f"log <Mh>: { np.log(hm.averageHaloMass()) :10.3f}")
+    
+    return
+
+if __name__ =='__main__':
+    test2()
