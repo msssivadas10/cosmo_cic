@@ -27,7 +27,7 @@ class HaloModel:
     
     """
 
-    __slots__ = 'cosmology', 'overdensity', 'settings', 'z_distribution', 'z_range', 
+    __slots__ = 'cosmology', 'overdensity', 'settings', 'z_distribution', 'z_range', 'averageDensity', 
 
     def __init__(self, 
                  cosmology: Cosmology | None = None, 
@@ -39,6 +39,7 @@ class HaloModel:
         self.cosmology = None
         self.z_distribution = None
         self.z_range        = (0., np.inf)
+        self.averageDensity = None
         # link cosmology model 
         self.setCosmology(cosmology)
 
@@ -78,6 +79,8 @@ class HaloModel:
                 raise TypeError("z_distribution must be a callable object")
             self.z_distribution = z_distribution
             self.z_range = ( z_min, z_max )
+            # calculate average density
+            self.averageDensity = self.galaxyDensity()
         return
 
     def centralCount(self, m: Any) -> Any:
@@ -306,10 +309,10 @@ class HaloModel:
         wts = np.reshape(wts, shape)
         # function to integrate
         res1 = self.totalCount(m) * self.massFunction(m, z, 'dndlnm')
-        res  = m * res1
+        res1 = m * res1
         # logspace integration
-        res = np.sum( res * wts, axis = 0 ) / np.sum( res1 * wts, axis = 0 )
-        return res
+        res1 = np.sum( res1 * wts, axis = 0 ) / self.averageDensity
+        return res1
     
     def effectiveBias(self, z: Any = None) -> Any:
         r"""
@@ -338,10 +341,10 @@ class HaloModel:
         wts = np.reshape(wts, shape)
         # function to integrate
         res1 = self.totalCount(m) * self.massFunction(m, z, 'dndlnm')
-        res  = self.biasFunction(m, z) * res1 
+        res1 = self.biasFunction(m, z) * res1 
         # logspace integration
-        res = np.sum( res * wts, axis = 0 ) / np.sum( res1 * wts, axis = 0 )
-        return res
+        res1 = np.sum( res1 * wts, axis = 0 ) / self.averageDensity
+        return res1
     
     def galaxyPowerSpectrum(self, 
                             k: Any, 
@@ -403,7 +406,7 @@ class HaloModel:
             res2 = np.sum( res2 * wts, axis = 0 )
             res += res2**2 * self.matterPowerSpectrum(k, z) 
         # normalization
-        res = res / self.galaxyDensity(z)**2
+        res = res / self.averageDensity**2
         return res
     
     def galaxyCorrelation(self, 
@@ -756,11 +759,11 @@ class Zheng07(HaloModel):
         return cls( *params, cosmology, overdensity, )
 
     def centralCount(self, m: Any) -> Any:
-        res = ( np.log(m) - self.logm_min ) / self.sigma_logm
+        res = ( np.log10(m) - self.logm_min ) / self.sigma_logm
         res = 0.5 * ( erf(res) + 1. )
         return res 
     
     def satelliteFraction(self, m: Any) -> float:
-        m0, m1 = np.exp(self.logm0), np.exp(self.logm1)
+        m0, m1 = 10**self.logm0, 10**self.logm1
         res    = np.divide( np.subtract( m, m0 ), m1 )**self.alpha
         return res
