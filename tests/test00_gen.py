@@ -30,11 +30,11 @@ def test2():
         return res
     hm = Zheng07.harikane22(mag = MUV_TH, z = ZBAR, cosmology = cm, overdensity = 200)
     hm.setRedshiftDistribution(z_distribution, z_min = 3.0, z_max = 4.5)
-    print(f"log Mmin    : { hm.logm_min :10.3f}")
-    print(f"log Msat    : { hm.logm1    :10.3f}")
-    print(f"avg. Density: { hm.averageDensity :10.3f}")
-    print(f"Eff. bg     : { hm.effectiveBias() :10.3f}")
-    print(f"log <Mh>    : { np.log10(hm.averageHaloMass()) :10.3f}")
+    print(f"log Mmin    : { hm.logm_min - np.log10(cm.h) :10.3f}")
+    print(f"log Msat    : { hm.logm1    - np.log10(cm.h) :10.3f}")
+    print(f"avg. Density: { hm.averageDensity * cm.h**3  :10.3e}")
+    print(f"Eff. bg     : { hm.effectiveBias()           :10.3f}")
+    print(f"log <Mh>    : { np.log10(hm.averageHaloMass()/cm.h) :10.3f}")
     return
 
 if __name__ =='__main__':

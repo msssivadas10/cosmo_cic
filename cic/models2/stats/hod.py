@@ -85,7 +85,7 @@ class HaloModel:
 
     def centralCount(self, m: Any) -> Any:
         r"""
-        Return the average number of central galaxies in halo of mass m.
+        Return the average number of central galaxies in halo of mass m (Msun/h).
 
         Parameters
         ----------
@@ -100,7 +100,7 @@ class HaloModel:
     
     def satelliteFraction(self, m: Any) -> float:
         r"""
-        Return the average fraction of satellite galaxies in halo of mass m.
+        Return the average fraction of satellite galaxies in halo of mass m (Msun/h).
         
         Parameters
         ----------
@@ -115,7 +115,7 @@ class HaloModel:
     
     def totalCount(self, m: Any) -> float:
         r"""
-        Return the total (average) number of galaxies in a halo of mass m.
+        Return the total (average) number of galaxies in a halo of mass m (Msun/h).
         
         Parameters
         ----------
@@ -693,7 +693,7 @@ class Zheng07(HaloModel):
     def harikane22(cls, 
                    mag: float, 
                    z: float, 
-                   cosmology: Cosmology | None = None, 
+                   cosmology: Cosmology, 
                    overdensity: float | None = None, ) -> 'Zheng07':
         r"""
         Create a halo model using a pre-defined set of parameters, given in Table 8 of Harikane (2022). 
@@ -751,6 +751,8 @@ class Zheng07(HaloModel):
         paramList = paramList[ min( paramList, key = lambda __z: abs(__z - z) ) ]
         # interpolate to the nearest magnitude value 
         params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
+        # convert from Msun to Msun/h units
+        params = np.add( params, np.log10(cosmology.h) )
         # add other parameters:
         #--------------------------------------------------------------------------
         #          log(Mmin), sigma = 0.2*sqrt(2), log(M0)       , log(M1)  , alpha
