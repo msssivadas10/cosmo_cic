@@ -1121,8 +1121,8 @@ class Cosmology:
 
         """
         halo_density = self.Om0 * Cosmology.UNIT_DENSITY
-        if overdensity is not None:
-            halo_density *= overdensity
+        # if overdensity is not None:
+        #     halo_density *= overdensity
         res = 4*np.pi/3. * np.asfarray(r)**3 * halo_density
         return res
     
@@ -1145,8 +1145,8 @@ class Cosmology:
 
         """
         halo_density = self.Om0 * Cosmology.UNIT_DENSITY
-        if overdensity is not None:
-            halo_density *= overdensity
+        # if overdensity is not None:
+        #     halo_density *= overdensity
         res = np.cbrt( 0.75*np.asfarray(m) / np.pi / halo_density )
         return res
     
@@ -1220,7 +1220,7 @@ class Cosmology:
         r   = self.lagrangianR(m, overdensity)
         nu  = self.nu(r, z, normalize = True, nonlinear = False)
         res = self.halo_bias.call(self, nu, z, overdensity)
-        return res 
+        return res
     
     ###########################################################################################################
     #                                               Halo structure                                            #
