@@ -89,7 +89,7 @@ def test1():
     # plt.legend()
     # plt.show()
 
-    z = 0.
+    z = 4.
 
     # power spectrum
     # k, pk_ref = np.loadtxt('../ref/ref2/linear_power_z%.2f.txt' % z, delimiter = ',', comments = '#', unpack = True)
@@ -159,8 +159,8 @@ def test1():
     # ylab  = 'b(m)'
     # plt.semilogx() 
 
-    plt.plot(x, y_ref, '-', label = 'pyccl')
-    plt.plot(x, y, '-', label = 'ente')
+    plt.plot(x, np.abs(y - y_ref)/np.abs(y_ref), '-', label = 'pyccl')
+    # plt.plot(x, y, '-', label = 'ente')
     plt.xlabel( xlab )
     plt.ylabel( ylab )
     plt.title(f'max. error: { max_error(y, y_ref) :.3g} %')

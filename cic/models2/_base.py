@@ -1183,7 +1183,7 @@ class Cosmology:
         f = self.mass_function.call(self, s, z, overdensity)
         if retval in ['f', 'fsigma']:
             return f
-        density  = self.Om0 * Cosmology.UNIT_DENSITY * np.add(z, 1.)**3
+        density  = self.Om0 * Cosmology.UNIT_DENSITY #* np.add(z, 1.)**3
         dlnsdlnm = self.matterVariance(r, z, deriv = 1, normalize = True, nonlinear = False) / 6.
         # number density
         dndm = f * np.abs(dlnsdlnm) * density / m**2
