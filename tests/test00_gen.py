@@ -47,6 +47,10 @@ def test2():
     print(f"density     : { hm.galaxyDensity(ZBAR)*cm.h**3 :10.3e}")
     return
 
+def max_error(x, ref):
+    err = 100 * np.abs(x - ref) / np.abs(ref)
+    return np.max(err)
+
 def test1():
     # import gzip
     import scipy.interpolate as interp
@@ -60,7 +64,11 @@ def test1():
     
     # print( ref_data.keys() )
 
-    cm = Cosmology(h = 0.6774, Om0 = 0.229 + 0.049, Ob0 = 0.049, sigma8 = 0.8159, ns = 0.9667)
+    cm = Cosmology(h = 0.6774, 
+                   Om0 = 0.229 + 0.049, 
+                   Ob0 = 0.049, 
+                   sigma8 = 0.8159, 
+                   ns = 0.9667)
     cm.link(power_spectrum = 'eisenstein98_zb', 
             window         = 'tophat', 
             mass_function  = 'tinker08', 
@@ -75,9 +83,6 @@ def test1():
         y = np.exp( interp.CubicSpline(np.log( xp[::-1] ), np.log( yp[::-1] ) )( np.log(x) ) )
         return y
     
-    def max_error(x, ref):
-        err = 100 * np.abs(x - ref) / np.abs(ref)
-        return np.max(err)
 
     # growth factor
     # z, dz_ref = np.loadtxt('../ref/ref2/linear_growth.txt', delimiter = ',', comments = '#', unpack = True)
@@ -189,6 +194,45 @@ def test1():
     # plt.show()
     return
 
-if __name__ =='__main__':
-    test1()
+def test3():
+    z, ng, mh, bg = np.loadtxt('../ref/hod_values.txt', delimiter = ',', comments = '#', unpack = True)
+
+    h = 1. # cm.h
+    hm = Zheng07(logm_min = np.log10(1e11 / h), 
+                 sigma_logm = 0.25, 
+                 logm0 = np.log10(1e8 / h), 
+                 logm1 = np.log10(1e12 / h), 
+                 alpha = 0.8, 
+                 cosmology = cm, 
+                 overdensity = 200, )
+    # hm.settings.m_quad
+
+    #==========================================
+    # galaxy density
+    #==========================================
+    y_ref = ng
+    y     = hm.galaxyDensity( z ) * cm.h**3
+    ylab  = '$n_g$'
+
+    plt.figure()
+    plt.loglog()
+    # plt.plot(z, np.abs(y - y_ref)/np.abs(y_ref), '-', label = 'pyccl')
+    plt.plot(z, y_ref, '-', label = 'pyccl')
+    plt.plot(z, y, '-', label = 'ente')
+    plt.xlabel( 'z' )
+    plt.ylabel( ylab )
+    plt.title(f'max. error: { max_error(y, y_ref) :.3g} %')
+    plt.legend()
+    plt.show()
+
+
+    return
+
+def main():
+    # test1()
     # test2()
+    test3()
+    return
+
+if __name__ =='__main__':
+    main()
