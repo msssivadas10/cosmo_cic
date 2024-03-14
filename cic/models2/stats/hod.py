@@ -39,7 +39,7 @@ class HaloModel:
         self.cosmology = None
         self.z_distribution = None
         self.z_range        = (0., np.inf)
-        self.averageDensity = None
+        self.averageDensity = 1.0
         # link cosmology model 
         self.setCosmology(cosmology)
 
@@ -761,6 +761,7 @@ class Zheng07(HaloModel):
         return cls( *params, cosmology, overdensity, )
 
     def centralCount(self, m: Any) -> Any:
+        # m = np.asfarray(m) / self.cosmology.h # convert mass from Msun/h to Msun
         res = ( np.log10(m) - self.logm_min ) / self.sigma_logm
         res = 0.5 * ( erf(res) + 1. )
         return res 
@@ -768,4 +769,5 @@ class Zheng07(HaloModel):
     def satelliteFraction(self, m: Any) -> float:
         m0, m1 = 10**self.logm0, 10**self.logm1
         res    = np.divide( np.subtract( m, m0 ), m1 )**self.alpha
+        res[ np.isnan(res) ] = 0.
         return res
