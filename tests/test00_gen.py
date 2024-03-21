@@ -7,7 +7,7 @@ sys.path.append(path.split(path.split(__file__)[0])[0])
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
-from cic.models2 import cosmology, Cosmology, PowerSpectrum
+from cic.models2 import Cosmology, PowerSpectrum
 from cic.models2.stats.hod import Zheng07
 from typing import Any 
 
@@ -28,46 +28,33 @@ class SampledPS(PowerSpectrum):
             res = res * model.dplus( z ) / model.dplus( 0. )
         return res
     
+def get_cosmology():
+    cm = Cosmology(h = 0.6774, 
+                   Om0 = 0.229 + 0.049, 
+                   Ob0 = 0.049, 
+                   sigma8 = 0.8159, 
+                   ns = 0.9667)
+    lnh = np.log( cm.h )
 
-cm = cosmology('plank18')
-cm.link(power_spectrum = 'eisenstein98_zb', 
-        window         = 'tophat', 
-        mass_function  = 'tinker08', 
-        halo_bias      = 'tinker10', 
-        cmreln         = 'bullock01_powerlaw',
-        halo_profile   = 'nfw',   )
-# print( cm )
+    x, y = np.loadtxt('../ref/ref2/linear_power_z0.00.txt', delimiter = ',', comments = '#', unpack = True)
 
-############################################################################################
+    # convert k from mpc^-1 to h/mpc
+    x = np.log(x) - lnh
 
-def test2():
-    MUV_TH = -22.5 # uv magnitude threshold
-    ZBAR   =  3.8  # redshift
-    def z_distribution(z, cm = None): # for z = 3.8 (~ 4)
-        res = np.interp(z, 
-                        [3.00, 3.20, 3.40, 3.60, 4.00, 4.20, 4.40, 4.50],
-                        [0.00, 0.02, 0.55, 0.75, 0.60, 0.55, 0.05, 0.00],
-                        left  = 0.,
-                        right = 0., )
-        return res
-    hm = Zheng07.harikane22(mag = MUV_TH, z = ZBAR, cosmology = cm, overdensity = 200)
-    hm.setRedshiftDistribution(z_distribution, z_min = 3.0, z_max = 4.5)
-    #################################################################
-    logm_min = hm.logm_min - np.log10(cm.h) # in Msun       
-    logm1    = hm.logm1    - np.log10(cm.h)        
-    ng       = hm.averageDensity * cm.h**3  # Mpc**-3       
-    beff     = hm.effectiveBias()                  
-    mh       = hm.averageHaloMass()/cm.h 
-    #################################################################
-    print(f"log Mmin    : { logm_min     :10.3f}")
-    print(f"log Msat    : { logm1        :10.3f}")
-    print(f"avg. Density: { ng           :10.3e}")
-    print(f"Eff. bg     : { beff         :10.3f}")
-    print(f"log <Mh>    : { np.log10(mh) :10.3f}")
-    #################################################################
-    print(f"bias        : { hm.biasFunction(mh*cm.h, ZBAR) :10.3f}")
-    print(f"density     : { hm.galaxyDensity(ZBAR)*cm.h**3 :10.3e}")
-    return
+    # convert p(k) from mpc^-3 to (h/mpc)^3
+    y = np.log(y) - 3*lnh
+
+    # convert ln(p) to ln(t)
+    y = 0.5*( y - cm.ns*x )
+    y = y - np.max(y)
+
+    cm.link(power_spectrum = SampledPS(x, y), 
+            window         = 'tophat', 
+            mass_function  = 'tinker08', 
+            halo_bias      = 'tinker10', 
+            cmreln         = 'bullock01_powerlaw',
+            halo_profile   = 'nfw',   )
+    return cm
 
 def max_error(x, ref):
     err = 100 * np.abs(x - ref) / np.abs(ref)
@@ -76,6 +63,8 @@ def max_error(x, ref):
 def test1():
     # import gzip
     import scipy.interpolate as interp
+
+    cm = get_cosmology()
     
     # ref_data = {}
     # with gzip.open('../ref/ref1/halo_data/sigma_massfn_bias_z0.00_EH_tinker_tinker.dat.gz') as file:
@@ -85,18 +74,6 @@ def test1():
     #     return print('cannot load data :(')
     
     # print( ref_data.keys() )
-
-    cm = Cosmology(h = 0.6774, 
-                   Om0 = 0.229 + 0.049, 
-                   Ob0 = 0.049, 
-                   sigma8 = 0.8159, 
-                   ns = 0.9667)
-    cm.link(power_spectrum = 'eisenstein98_zb', 
-            window         = 'tophat', 
-            mass_function  = 'tinker08', 
-            halo_bias      = 'tinker10', 
-            cmreln         = 'bullock01_powerlaw',
-            halo_profile   = 'nfw',   )
     
     def interpolate(xp, yp, x, nu = 0):
         if nu:
@@ -216,41 +193,10 @@ def test1():
     # plt.show()
     return
 
-def test3():
-    z, ng, mh, bg = np.loadtxt('../ref/hod_values.txt', delimiter = ',', comments = '#', unpack = True)
-
-    h = 1. # cm.h
-    hm = Zheng07(logm_min = np.log10(1e11 / h), 
-                 sigma_logm = 0.25, 
-                 logm0 = np.log10(1e8 / h), 
-                 logm1 = np.log10(1e12 / h), 
-                 alpha = 0.8, 
-                 cosmology = cm, 
-                 overdensity = 200, )
-    # hm.settings.m_quad
-
-    #==========================================
-    # galaxy density
-    #==========================================
-    y_ref = ng
-    y     = hm.galaxyDensity( z ) * cm.h**3
-    ylab  = '$n_g$'
-
-    plt.figure()
-    # plt.loglog()
-    # plt.plot(z, 100*np.abs(y - y_ref)/np.abs(y_ref), '-', label = 'pyccl')
-    plt.plot(z, y / y_ref, '-', label = 'pyccl')
-    # plt.plot(z, y_ref, '-', label = 'pyccl')
-    # plt.plot(z, y, '-', label = 'ente')
-    plt.xlabel( 'z' )
-    plt.ylabel( ylab )
-    plt.title(f'max. error: { max_error(y, y_ref) :.3g} %')
-    plt.legend()
-    plt.show()
-    return
-
-def test4():
+def test2():
     from scipy.integrate import simpson
+
+    cm = get_cosmology()
 
     h = 1. # cm.h
     hm = Zheng07(logm_min = np.log10(1e11 / h), 
@@ -311,36 +257,8 @@ def test4():
 
     return
 
-def test5():
-
-    cm = Cosmology(h = 0.6774, 
-                   Om0 = 0.229 + 0.049, 
-                   Ob0 = 0.049, 
-                   sigma8 = 0.8159, 
-                   ns = 0.9667)
-    lnh = np.log( cm.h )
-
-    x, y = np.loadtxt('../ref/ref2/linear_power_z0.00.txt', delimiter = ',', comments = '#', unpack = True)
-
-    # convert k from mpc^-1 to h/mpc
-    x = np.log(x) - lnh
-
-    # convert p(k) from mpc^-3 to (h/mpc)^3
-    y = np.log(y) - 3*lnh
-
-    # convert ln(p) to ln(t)
-    y = 0.5*( y - cm.ns*x )
-    y = y - np.max(y)
-
-    cm.link(power_spectrum = SampledPS(x, y), 
-            window         = 'tophat', 
-            mass_function  = 'tinker08', 
-            halo_bias      = 'tinker10', 
-            cmreln         = 'bullock01_powerlaw',
-            halo_profile   = 'nfw',   )
-    
-    ##
-    z = 0.
+def test3():
+    cm = get_cosmology()
 
     fig = plt.figure()
     plt.semilogx()
@@ -367,9 +285,7 @@ def test5():
 def main():
     # test1()
     # test2()
-    # test3()
-    # test4()
-    test5()
+    test3()
     return
 
 if __name__ =='__main__':
