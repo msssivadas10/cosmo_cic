@@ -218,11 +218,7 @@ def test2():
     return
 
 def test3():
-    from scipy.integrate import simpson
-    import scipy.special as sf
-
-    cm = get_cosmology()
-
+    cm  = get_cosmology()
     h   = cm.h
     lnh = np.log10(h)
     # 5-parameter hod model
