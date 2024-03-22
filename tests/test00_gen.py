@@ -194,70 +194,6 @@ def test1():
     return
 
 def test2():
-    from scipy.integrate import simpson
-
-    cm = get_cosmology()
-
-    h = 1. # cm.h
-    hm = Zheng07(logm_min = np.log10(1e11 / h), 
-                 sigma_logm = 0.25, 
-                 logm0 = np.log10(1e8 / h), 
-                 logm1 = np.log10(1e12 / h), 
-                 alpha = 0.8, 
-                 cosmology = cm, 
-                 overdensity = 200, )
-
-    z, ng, mh, bg = np.loadtxt('../ref/ref3/hod_values.txt', delimiter = ',', comments = '#', unpack = True)
-    mf_table = np.loadtxt('../ref/ref3/hod_values_mf.txt', delimiter = ',', comments = '#')
-    bf_table = np.loadtxt('../ref/ref3/hod_values_bf.txt', delimiter = ',', comments = '#')
-
-    plt.figure()
-    # plt.loglog()
-    # plt.semilogy()
-    plt.semilogx()
-
-
-    # for zz in range(0, len(z), 10):
-    #     y = hm.massFunction( mf_table[:,0] * cm.h, z[ zz ] ) #* cm.h
-    #     plt.plot( mf_table[:,0], 100 * np.abs( y / mf_table[:,zz+2] - 1. ), label = '%.2f' % z[ zz ] )
-    #     # plt.plot( mf_table[:,0], mf_table[:,zz+2] )
-    #     # plt.plot( mf_table[:,0], y, '+')
-    # plt.legend(title = 'z')
-
-    for zz in range(0, len(z), 10):
-        y = hm.biasFunction( bf_table[:,0] * cm.h, z[ zz ] ) #* cm.h
-        plt.plot( bf_table[:,0], 100 * np.abs( y / bf_table[:,zz+2] - 1. ), label = '%.2f' % z[ zz ] )
-        # plt.plot( mf_table[:,0], mf_table[:,zz+2] )
-        # plt.plot( mf_table[:,0], y, '+')
-    plt.legend(title = 'z')
-
-
-    x = np.log10( mf_table[:,0] )
-    y = []
-    for zz in range(len(z)):
-        # y = hm.massFunction( mf_table[:,0] * cm.h, z[ zz ] ) #* cm.h**3
-        # plt.plot( mf_table[:,0], mf_table[:,zz+2] )
-        # plt.plot( mf_table[:,0], y)
-        # plt.plot( mf_table[:,0], mf_table[:,zz+2] / y )
-
-        ...
-        # y.append( simpson( mf_table[:,1] * mf_table[:,zz+2], x = x ) )
-        # y.append( simpson( mf_table[:,0] * mf_table[:,1] * mf_table[:,zz+2], x = x ) )
-        # y.append( simpson( bf_table[:,zz+2] * mf_table[:,1] * mf_table[:,zz+2], x = x ) )
-    # y = np.asfarray(y)
-
-    ## total
-    # plt.plot( mf_table[:,0], mf_table[:,1] )
-    # plt.plot( mf_table[:,0], hm.totalCount( mf_table[:,0] ) )
-
-    # plt.plot(z, ng) 
-    # plt.plot(z, y, '+') 
-
-    plt.show()
-
-    return
-
-def test3():
     cm = get_cosmology()
 
     fig = plt.figure()
@@ -266,21 +202,82 @@ def test3():
 
     for z in [ 0., 1., 2., 4., ]:
         # power
-        k, pk_ref = np.loadtxt('../ref/ref2/linear_power_z%.2f.txt' % z, delimiter = ',', comments = '#', unpack = True)
-        pk = cm.matterPowerSpectrum( k[::20]/cm.h, z ) / cm.h**3
-        plt.plot(k[::20], np.abs( pk / pk_ref[::20] - 1 )*100, '-', label = '%.2f' % z)
+        # k, pk_ref = np.loadtxt('../ref/ref2/linear_power_z%.2f.txt' % z, delimiter = ',', comments = '#', unpack = True)
+        # pk = cm.matterPowerSpectrum( k[::20]/cm.h, z ) / cm.h**3
+        # plt.plot(k[::20], np.abs( pk / pk_ref[::20] - 1 )*100, '-', label = '%.2f' % z)
 
-        # m, s_ref, dlns_ref, f_ref, hmf_ref, b_ref = np.loadtxt('../ref/ref2/halo_props_z%.2f.txt' % z, delimiter = ',', comments = '#', unpack = True)
-        # # y_ref, y = s_ref**2, cm.matterVariance( cm.lagrangianR( m*cm.h ), z ) # var
-        # # y_ref, y = hmf_ref, cm.haloMassFunction( m*cm.h, z, 200 ) * cm.h**3 # massfunc
+        m, s_ref, dlns_ref, f_ref, hmf_ref, b_ref = np.loadtxt('../ref/ref2/halo_props_z%.2f.txt' % z, delimiter = ',', comments = '#', unpack = True)
+        # y_ref, y = s_ref**2, cm.matterVariance( cm.lagrangianR( m*cm.h ), z ) # var
+        y_ref, y = hmf_ref, cm.haloMassFunction( m*cm.h, z, 200 ) * cm.h**3 # massfunc
         # y_ref, y =  b_ref, cm.haloBias(m*cm.h, z, 200) # bias
-        # plt.plot(m, np.abs( y / y_ref - 1) * 100, '-', label = '%.2f' % z)
+        plt.plot(m, np.abs( y / y_ref - 1) * 100, '-', label = '%.2f' % z)
 
 
     plt.legend(title = 'z')
     plt.show()
-
     return
+
+def test3():
+    from scipy.integrate import simpson
+    import scipy.special as sf
+
+    cm = get_cosmology()
+
+    h = cm.h
+    lnh = np.log10(h)
+    logMmin = 11.0
+    sigma = 0.25
+    logM0 = 8.0
+    logM1 = 12.0
+    alpha = 0.8
+    m0 = 10**logM0
+    m1 = 10**logM1
+
+    hm = Zheng07(logm_min = logMmin + lnh, 
+                 sigma_logm = sigma, 
+                 logm0 = logM0 + lnh, 
+                 logm1 = logM1 + lnh, 
+                 alpha = alpha, 
+                 cosmology = cm, 
+                 overdensity = 200, )
+
+    z, ng, mh, bg = np.loadtxt('../ref/ref3/hod_values.txt', delimiter = ',', comments = '#', unpack = True)
+    mf_table = np.loadtxt('../ref/ref3/hod_values_mf.txt', delimiter = ',', comments = '#')
+    bf_table = np.loadtxt('../ref/ref3/hod_values_bf.txt', delimiter = ',', comments = '#')
+
+    m  = mf_table[:,0] 
+    nt = hm.totalCount(m*h)
+
+    plt.figure()
+
+    # plt.loglog()
+    # plt.plot( m, mf_table[:,1] + 1e-08 )
+    # plt.plot( m, nt + 1e-08, '+' )
+
+    # plt.loglog()
+    # plt.plot( m, hm.satelliteFraction(m) + 1e-08 )
+    
+    plt.semilogy()
+    # x = np.log10( mf_table[:,0] )
+    # y = []
+    # for zz in range(len(z)):
+    #     t = nt * hm.massFunction( mf_table[:,0] * cm.h, z[ zz ] ) * cm.h**3
+    #     y.append( simpson( t, x = x ) )
+    #     # y.append( simpson( mf_table[:,0] * mf_table[:,1] * mf_table[:,zz+2], x = x ) )
+    #     # y.append( simpson( bf_table[:,zz+2] * mf_table[:,1] * mf_table[:,zz+2], x = x ) )
+    # y = np.asfarray(y)
+
+    # y_ref, y = ng, hm.galaxyDensity( z ) * cm.h**3
+    # y_ref, y = mh, hm.averageHaloMass( z ) * cm.h**2
+    y_ref, y = bg, hm.effectiveBias( z ) * cm.h**3
+    
+    plt.plot(z, y_ref) 
+    plt.plot(z, y, '+') 
+    plt.twinx().plot( z, np.abs( y / y_ref - 1.)*100, color = 'green', lw = 0.7 )
+
+    plt.show()
+    return
+
 
 def main():
     # test1()
