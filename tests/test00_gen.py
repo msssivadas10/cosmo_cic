@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
 from cic.models2 import Cosmology, PowerSpectrum
-from cic.models2.stats.hod import Zheng07
+from cic.models2.stats.hod import HM5
 from typing import Any 
 
 class SampledPS(PowerSpectrum):
@@ -233,13 +233,13 @@ def test3():
     m0 = 10**logM0
     m1 = 10**logM1
 
-    hm = Zheng07(logm_min = logMmin + lnh, 
-                 sigma_logm = sigma, 
-                 logm0 = logM0 + lnh, 
-                 logm1 = logM1 + lnh, 
-                 alpha = alpha, 
-                 cosmology = cm, 
-                 overdensity = 200, )
+    hm = HM5(logm_min = logMmin + lnh, 
+             sigma_logm = sigma, 
+             logm0 = logM0 + lnh, 
+             logm1 = logM1 + lnh, 
+             alpha = alpha, 
+             cosmology = cm, 
+             overdensity = 200, )
 
     z, ng, mh, bg = np.loadtxt('../ref/ref3/hod_values.txt', delimiter = ',', comments = '#', unpack = True)
     mf_table = np.loadtxt('../ref/ref3/hod_values_mf.txt', delimiter = ',', comments = '#')

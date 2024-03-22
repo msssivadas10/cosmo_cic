@@ -488,7 +488,7 @@ class HaloModel:
 #                                           Built-in models                                             #
 #########################################################################################################
     
-class Zehavi05(HaloModel):
+class HM3(HaloModel):
     r"""
     A 3-parameter halo model given in Zehavi (2005).
 
@@ -532,7 +532,7 @@ class Zehavi05(HaloModel):
                  mag: float, 
                  z: float = None, 
                  cosmology: Cosmology | None = None, 
-                 overdensity: float | None = None, ) -> 'Zheng07':
+                 overdensity: float | None = None, ) -> 'HM3':
         r"""
         Create a halo model using a pre-defined set of parameters, given in table 3 of Zehavi (2005).
 
@@ -573,7 +573,7 @@ class Zehavi05(HaloModel):
         res = np.divide( m, m1 )**self.alpha
         return res
 
-class Zheng07(HaloModel):
+class HM5(HaloModel):
     r"""
     A 5-parameter halo model given in Zheng (2007).
 
@@ -623,7 +623,7 @@ class Zheng07(HaloModel):
               mag: float, 
               z: float = None, 
               cosmology: Cosmology | None = None, 
-              overdensity: float | None = None, ) -> 'Zheng07':
+              overdensity: float | None = None, ) -> 'HM5':
         r"""
         Create a halo model using a pre-defined set of parameters, given in Table 1 of Zheng (2007), 
         for DEEP2. Nearest neighbour interpolation is used for values not in the table.
@@ -656,7 +656,7 @@ class Zheng07(HaloModel):
               mag: float, 
               z: float = None, 
               cosmology: Cosmology | None = None, 
-              overdensity: float | None = None, ) -> 'Zheng07':
+              overdensity: float | None = None, ) -> 'HM5':
         r"""
         Create a halo model using a pre-defined set of parameters, given in Table 1 of Zheng (2007), 
         for SDSS. Nearest neighbour interpolation is used for values not in the table.
@@ -694,7 +694,7 @@ class Zheng07(HaloModel):
                    mag: float, 
                    z: float, 
                    cosmology: Cosmology, 
-                   overdensity: float | None = None, ) -> 'Zheng07':
+                   overdensity: float | None = None, ) -> 'HM5':
         r"""
         Create a halo model using a pre-defined set of parameters, given in Table 8 of Harikane (2022). 
         Nearest neighbour interpolation is used for values not in the table.
