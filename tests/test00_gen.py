@@ -223,30 +223,23 @@ def test3():
 
     cm = get_cosmology()
 
-    h = cm.h
+    h   = cm.h
     lnh = np.log10(h)
-    logMmin = 11.0
-    sigma = 0.25
-    logM0 = 8.0
-    logM1 = 12.0
-    alpha = 0.8
-    m0 = 10**logM0
-    m1 = 10**logM1
-
-    hm = HM5(logm_min = logMmin + lnh, 
-             sigma_logm = sigma, 
-             logm0 = logM0 + lnh, 
-             logm1 = logM1 + lnh, 
-             alpha = alpha, 
-             cosmology = cm, 
-             overdensity = 200, )
+    # 5-parameter hod model
+    hm  = HM5(logm_min    = 11.0 + lnh, 
+              sigma_logm  =  0.25, 
+              logm0       =  8.0 + lnh, 
+              logm1       = 12.0 + lnh, 
+              alpha       =  0.8, 
+              cosmology   = cm, 
+              overdensity = 200, )
 
     z, ng, mh, bg = np.loadtxt('../ref/ref3/hod_values.txt', delimiter = ',', comments = '#', unpack = True)
-    mf_table = np.loadtxt('../ref/ref3/hod_values_mf.txt', delimiter = ',', comments = '#')
-    bf_table = np.loadtxt('../ref/ref3/hod_values_bf.txt', delimiter = ',', comments = '#')
+    # mf_table = np.loadtxt('../ref/ref3/hod_values_mf.txt', delimiter = ',', comments = '#')
+    # bf_table = np.loadtxt('../ref/ref3/hod_values_bf.txt', delimiter = ',', comments = '#')
 
-    m  = mf_table[:,0] 
-    nt = hm.totalCount(m*h)
+    # m  = mf_table[:,0] 
+    # nt = hm.totalCount(m*h)
 
     plt.figure()
 
