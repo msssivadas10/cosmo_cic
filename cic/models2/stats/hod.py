@@ -768,6 +768,7 @@ class Zheng07(HaloModel):
     
     def satelliteFraction(self, m: Any) -> float:
         m0, m1 = 10**self.logm0, 10**self.logm1
-        res    = np.divide( np.subtract( m, m0 ), m1 )**self.alpha
-        res[ np.isnan(res) ] = 0.
+        res    = np.zeros_like(m)
+        mask   = ( m > m0 )
+        res[mask] = np.divide( np.subtract( m[mask], m0 ), m1 )**self.alpha
         return res
