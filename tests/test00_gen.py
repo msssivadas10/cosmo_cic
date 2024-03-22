@@ -258,15 +258,6 @@ def test3():
     # plt.plot( m, hm.satelliteFraction(m) + 1e-08 )
     
     plt.semilogy()
-    # x = np.log10( mf_table[:,0] )
-    # y = []
-    # for zz in range(len(z)):
-    #     t = nt * hm.massFunction( mf_table[:,0] * cm.h, z[ zz ] ) * cm.h**3
-    #     y.append( simpson( t, x = x ) )
-    #     # y.append( simpson( mf_table[:,0] * mf_table[:,1] * mf_table[:,zz+2], x = x ) )
-    #     # y.append( simpson( bf_table[:,zz+2] * mf_table[:,1] * mf_table[:,zz+2], x = x ) )
-    # y = np.asfarray(y)
-
     # y_ref, y = ng, hm.galaxyDensity( z ) * cm.h**3
     # y_ref, y = mh, hm.averageHaloMass( z ) * cm.h**2
     y_ref, y = bg, hm.effectiveBias( z ) * cm.h**3
