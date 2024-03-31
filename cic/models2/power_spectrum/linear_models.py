@@ -3,7 +3,6 @@
 import numpy as np
 from typing import Any
 
-from cic.models2._base import Cosmology 
 from .._base import PowerSpectrum, Cosmology, CosmologyError
 
 class PowerLaw(PowerSpectrum):
