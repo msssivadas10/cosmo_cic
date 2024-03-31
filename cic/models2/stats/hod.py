@@ -39,7 +39,7 @@ class HaloModel:
         self.cosmology = None
         self.z_distribution = None
         self.z_range        = (0., np.inf)
-        self.averageDensity = None
+        self.averageDensity = 1.0
         # link cosmology model 
         self.setCosmology(cosmology)
 
@@ -85,7 +85,7 @@ class HaloModel:
 
     def centralCount(self, m: Any) -> Any:
         r"""
-        Return the average number of central galaxies in halo of mass m.
+        Return the average number of central galaxies in halo of mass m (Msun/h).
 
         Parameters
         ----------
@@ -100,7 +100,7 @@ class HaloModel:
     
     def satelliteFraction(self, m: Any) -> float:
         r"""
-        Return the average fraction of satellite galaxies in halo of mass m.
+        Return the average fraction of satellite galaxies in halo of mass m (Msun/h).
         
         Parameters
         ----------
@@ -115,7 +115,7 @@ class HaloModel:
     
     def totalCount(self, m: Any) -> float:
         r"""
-        Return the total (average) number of galaxies in a halo of mass m.
+        Return the total (average) number of galaxies in a halo of mass m (Msun/h).
         
         Parameters
         ----------
@@ -488,7 +488,7 @@ class HaloModel:
 #                                           Built-in models                                             #
 #########################################################################################################
     
-class Zehavi05(HaloModel):
+class HM3(HaloModel):
     r"""
     A 3-parameter halo model given in Zehavi (2005).
 
@@ -532,7 +532,7 @@ class Zehavi05(HaloModel):
                  mag: float, 
                  z: float = None, 
                  cosmology: Cosmology | None = None, 
-                 overdensity: float | None = None, ) -> 'Zheng07':
+                 overdensity: float | None = None, ) -> 'HM3':
         r"""
         Create a halo model using a pre-defined set of parameters, given in table 3 of Zehavi (2005).
 
@@ -573,7 +573,7 @@ class Zehavi05(HaloModel):
         res = np.divide( m, m1 )**self.alpha
         return res
 
-class Zheng07(HaloModel):
+class HM5(HaloModel):
     r"""
     A 5-parameter halo model given in Zheng (2007).
 
@@ -623,7 +623,7 @@ class Zheng07(HaloModel):
               mag: float, 
               z: float = None, 
               cosmology: Cosmology | None = None, 
-              overdensity: float | None = None, ) -> 'Zheng07':
+              overdensity: float | None = None, ) -> 'HM5':
         r"""
         Create a halo model using a pre-defined set of parameters, given in Table 1 of Zheng (2007), 
         for DEEP2. Nearest neighbour interpolation is used for values not in the table.
@@ -656,7 +656,7 @@ class Zheng07(HaloModel):
               mag: float, 
               z: float = None, 
               cosmology: Cosmology | None = None, 
-              overdensity: float | None = None, ) -> 'Zheng07':
+              overdensity: float | None = None, ) -> 'HM5':
         r"""
         Create a halo model using a pre-defined set of parameters, given in Table 1 of Zheng (2007), 
         for SDSS. Nearest neighbour interpolation is used for values not in the table.
@@ -693,8 +693,8 @@ class Zheng07(HaloModel):
     def harikane22(cls, 
                    mag: float, 
                    z: float, 
-                   cosmology: Cosmology | None = None, 
-                   overdensity: float | None = None, ) -> 'Zheng07':
+                   cosmology: Cosmology, 
+                   overdensity: float | None = None, ) -> 'HM5':
         r"""
         Create a halo model using a pre-defined set of parameters, given in Table 8 of Harikane (2022). 
         Nearest neighbour interpolation is used for values not in the table.
@@ -751,6 +751,8 @@ class Zheng07(HaloModel):
         paramList = paramList[ min( paramList, key = lambda __z: abs(__z - z) ) ]
         # interpolate to the nearest magnitude value 
         params = paramList[ min( paramList, key = lambda __m: abs(__m - mag) ) ]
+        # convert from Msun to Msun/h units
+        params = np.add( params, np.log10(cosmology.h) )
         # add other parameters:
         #--------------------------------------------------------------------------
         #          log(Mmin), sigma = 0.2*sqrt(2), log(M0)       , log(M1)  , alpha
@@ -759,11 +761,14 @@ class Zheng07(HaloModel):
         return cls( *params, cosmology, overdensity, )
 
     def centralCount(self, m: Any) -> Any:
+        # m = np.asfarray(m) / self.cosmology.h # convert mass from Msun/h to Msun
         res = ( np.log10(m) - self.logm_min ) / self.sigma_logm
         res = 0.5 * ( erf(res) + 1. )
         return res 
     
     def satelliteFraction(self, m: Any) -> float:
         m0, m1 = 10**self.logm0, 10**self.logm1
-        res    = np.divide( np.subtract( m, m0 ), m1 )**self.alpha
+        res    = np.zeros_like(m)
+        mask   = ( m > m0 )
+        res[mask] = np.divide( np.subtract( m[mask], m0 ), m1 )**self.alpha
         return res
