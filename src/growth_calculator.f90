@@ -1,10 +1,55 @@
 module growth_calculator
     use constants, only: dp, PI, SPEED_OF_LIGHT_KMPS, EPS
-    use numerical, only: quadrule
+    use numerical, only: generate_gaussleg
     use objects, only: cosmology_model
     implicit none
 
+    private 
+
+    integer  :: nq = 0 !! number of points for integration
+    real(dp), allocatable :: xq(:) !! nodes for integration
+    real(dp), allocatable :: wq(:) !! weights for integration
+
+    public :: calculate_linear_growth
+    public :: setup_growth_calculator, reset_growth_calculator
+
 contains
+
+    !>
+    !! Setup the growth calculator.
+    !!
+    !! Parameters:
+    !!  n   : integer - Size of the integration rule.
+    !!  stat: integer - Status variable. 0 for success.
+    !!
+    subroutine setup_growth_calculator(n, stat)
+        integer, intent(in) :: n
+        integer, intent(out) ::  stat
+
+        !! allocate node array
+        if ( .not. allocated(xq) ) then
+            allocate( xq(n) )
+        end if
+        
+        !! allocate weights array
+        if ( .not. allocated(wq) ) then
+            allocate( wq(n) )
+        end if
+        
+        !! generating integration rule...
+        call generate_gaussleg(n, xq, wq, stat = stat)
+        nq = n
+        
+    end subroutine setup_growth_calculator
+    
+    !>
+    !! Reset growth calculator to initial state. 
+    !!
+    subroutine reset_growth_calculator()
+        deallocate( xq )
+        deallocate( wq )
+        nq = 0
+    end subroutine reset_growth_calculator
 
     !>
     !! Evaluate the integral expression related to linear growth_calculator calculation.
@@ -12,39 +57,49 @@ contains
     !! Parameters:
     !!  z    : real            - Redshift (must be greater than -1).
     !!  cm   : cosmology_model - Cosmology parameters
-    !!  qrule: quadrule        - Integration rule 
     !!  dplus: real            - Calculated value of growth factor.
     !!  fplus: real            - Calculated value of growth rate (optional).
+    !!  stat : integer         - Status. 1: not setup propery, 2: invalid redshift.
     !!
-    subroutine calculate_linear_growth(z, cm, qrule, dplus, fplus)
+    subroutine calculate_linear_growth(z, cm, dplus, fplus, stat)
         real(dp), intent(in)  :: z !! redshift 
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule     !! integration rule
-
+        
         real(dp), intent(out) :: dplus           !! growth factor
         real(dp), intent(out), optional :: fplus !! growth rate
+        integer , intent(out), optional :: stat  !! integration rule
 
         integer  :: i
         real(dp) :: integral !! value of the integral
         real(dp) :: a, fa, dlnfa, x_scale, zp1
-        real(dp) :: Om0, Ode0, Ok0 !! density parameters at z=0
-        Om0  = cm%Omega_m
-        Ode0 = cm%Omega_de
-        Ok0  = cm%Omega_k 
+        
+        if ( nq == 0 ) then !! not properly setup
+            if ( present(stat) ) then
+                stat = 2
+            end if
+            return
+        end if
+
+        if ( z <= -1. ) then !! invalid value for redshift
+            if ( present(stat) ) then
+                stat = 1
+            end if
+            return
+        end if
         
         integral = 0.0_dp
 
         !! ditance by evaluating the integral of [ a * E(a) ]^-3 from 0 to a...
         x_scale = 0.5_dp / ( z + 1._dp ) 
-        do i = 1, qrule%n
+        do i = 1, nq
             !! scale factor
-            a = x_scale * (qrule%x(i) + 1.) 
+            a = x_scale * (xq(i) + 1.) 
 
             !! calculating integrand
             call cm%calculate_hubble_func(1/a-1., fa) !! E**2(z)
             fa = 1./ ( a * sqrt( fa ) )**3
             
-            integral = integral + qrule%w(i) * fa
+            integral = integral + wq(i) * fa
         end do
         integral = integral * x_scale
 
@@ -57,6 +112,10 @@ contains
 
         if ( present(fplus) ) then !! calculating linear growth rate
             fplus = zp1**2 / fa / dplus - 0.5*dlnfa
+        end if
+
+        if ( present(stat) ) then !! succesful!
+            stat = 0
         end if
 
     end subroutine calculate_linear_growth
