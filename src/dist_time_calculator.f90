@@ -12,10 +12,14 @@ module dist_time_calculator
 
     public :: setup_distance_calculator, reset_distance_calculator
     public :: calculate_comoving_distance
+    public :: get_comoving_coordinate
+    public :: get_luminocity_distance
+    public :: get_angular_diameter_distance
+    public :: get_physical_size, get_angular_size
 
 contains
 
- !>
+    !>
     !! Setup the growth calculator.
     !!
     !! Parameters:
