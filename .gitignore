@@ -5,3 +5,5 @@ test_*.json
 /test_*
 *.mod
 *.out
+*.o
+*.a
