@@ -144,7 +144,7 @@ contains
             !! calculating power spectrum
             call ps(k, z, cm, pk, stat = stat2)
             if ( stat2 .ne. 0 ) exit !! error in power spectrum calculation
-            pk = k**3 * pk**2
+            pk = k**3 * pk
 
             !! calculating window function, w(kr)
             if ( use_filter == WIN_GAUSS ) then !! gaussian window function
