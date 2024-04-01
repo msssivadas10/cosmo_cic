@@ -1,5 +1,6 @@
 module dist_time_calculator
-    use constants, only: dp, PI, SPEED_OF_LIGHT_KMPS, EPS
+    use iso_fortran_env, only: dp => real64
+    use constants, only: PI, SPEED_OF_LIGHT_KMPS, EPS
     use numerical, only: generate_gaussleg
     use objects, only: cosmology_model
     implicit none

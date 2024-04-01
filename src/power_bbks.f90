@@ -1,8 +1,9 @@
 module power_bbks
-    use constants, only: dp
+    use iso_fortran_env, only: dp => real64
+    ! use constants, only: dp
     use objects, only: cosmology_model
     use growth_calculator, only: calculate_linear_growth
-    use interfaces, only: var_calculate
+    use variance_calculator, only: calculate_variance
     implicit none
 
     private
@@ -189,7 +190,6 @@ contains
     !! units of `sigma8^2`.
     !!
     !! Parameters:
-    !!  vc   : procedure       - Subroutine to calculate variance.
     !!  r    : real            - Smoothing scale in Mpc.
     !!  z    : real            - Redshift
     !!  cm   : cosmology_model - Cosmology parameters.
@@ -198,8 +198,7 @@ contains
     !!  d2lns: real            - Value of calculated 2-nd log-derivative (optional).
     !!  stat : integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine get_variance(vc, r, z, cm, sigma, dlns, d2lns, stat) 
-        procedure(var_calculate) :: vc
+    subroutine get_variance(r, z, cm, sigma, dlns, d2lns, stat) 
         real(dp), intent(in) :: r !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
@@ -210,7 +209,7 @@ contains
         integer :: stat2 = 0
 
         !! calculate variance
-        call vc(get_power_unnorm, r, z, cm, sigma, dlns = dlns, d2lns = d2lns, stat = stat2)
+        call calculate_variance(get_power_unnorm, r, z, cm, sigma, dlns = dlns, d2lns = d2lns, stat = stat2)
         if ( present(stat) ) stat = stat2
         if ( stat2 .ne. 0 ) return
 
@@ -223,12 +222,10 @@ contains
     !! Calculate sigma-8 normalization.
     !!
     !! Parameters:
-    !!  vc  : procedure       - Subroutine to calculate variance.
     !!  cm  : cosmology_model - Cosmology parameters.
     !!  stat: integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine set_normalization(vc, cm, stat)
-        procedure(var_calculate) :: vc
+    subroutine set_normalization(cm, stat)
         type(cosmology_model), intent(inout) :: cm !! cosmology parameters
         integer , intent(out), optional :: stat 
 
@@ -238,7 +235,7 @@ contains
         z = 0._dp
 
         !! calculating variance at 8 Mpc/h
-        call vc(get_power_unnorm, r, z, cm, calculated, stat = stat2)
+        call calculate_variance(get_power_unnorm, r, z, cm, calculated, stat = stat2)
         if ( present(stat) ) stat = stat2
         if ( stat2 .ne. 0 ) return
 

@@ -1,5 +1,6 @@
 module massfunc_models
-    use constants, only: dp, PI
+    use iso_fortran_env, only: dp => real64
+    use constants, only: PI
     use objects, only: cosmology_model
     implicit none
 

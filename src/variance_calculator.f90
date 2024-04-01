@@ -1,11 +1,26 @@
 module variance_calculator
-    use constants, only: dp, PI
+    use iso_fortran_env, only: dp => real64
+    use constants, only: PI
     use numerical, only: generate_gaussleg
     use objects, only: cosmology_model
-    use interfaces, only: ps_calculate
+    ! use interfaces, only: ps_calculate
     implicit none
 
     private
+
+    interface
+        !! Interface to power spectrum calculator
+        subroutine ps_calculate(k, z, cm, pk, stat)
+            use iso_fortran_env, only: dp => real64
+            ! use constants, only: dp
+            use objects, only: cosmology_model
+            real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
+            real(dp), intent(in) :: z !! redshift
+            type(cosmology_model), intent(in) :: cm !! cosmology parameters
+            real(dp), intent(out) :: pk
+            integer , intent(out), optional :: stat
+        end subroutine ps_calculate
+    end interface
 
     !!
     !! Window function models for varience calculations

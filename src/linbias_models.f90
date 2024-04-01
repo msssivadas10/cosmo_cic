@@ -1,5 +1,6 @@
 module linbias_models
-    use constants, only: dp, PI, DELTA_SC
+    use iso_fortran_env, only: dp => real64
+    use constants, only: PI, DELTA_SC
     use objects, only: cosmology_model
     implicit none
 

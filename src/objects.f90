@@ -1,5 +1,6 @@
 module objects
-    use constants, only: dp, EPS, DELTA_SC
+    use iso_fortran_env, only: dp => real64
+    use constants, only: EPS, DELTA_SC
     implicit none
 
     private

@@ -1,5 +1,6 @@
 module numerical
-    use constants
+    use iso_fortran_env, only: dp => real64
+    use constants, only: PI, EPS
     implicit none
 
     private
