@@ -1,3 +1,6 @@
+!!
+!! Generalized variance calculations for a power spectrum model.
+!!
 module variance_calculator
     use iso_fortran_env, only: dp => real64
     use constants, only: PI

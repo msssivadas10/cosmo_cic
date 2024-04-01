@@ -1,3 +1,6 @@
+!!
+!! Some numerical algorithms...
+!!
 module numerical
     use iso_fortran_env, only: dp => real64
     use constants, only: PI, EPS

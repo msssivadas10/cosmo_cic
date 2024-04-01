@@ -1,3 +1,6 @@
+!!
+!! Some linear bias models
+!!
 module linbias_models
     use iso_fortran_env, only: dp => real64
     use constants, only: PI, DELTA_SC

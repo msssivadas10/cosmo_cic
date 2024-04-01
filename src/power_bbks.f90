@@ -1,3 +1,6 @@
+!!
+!! Linear matter power spectrum model by BBKS.
+!!
 module power_bbks
     use iso_fortran_env, only: dp => real64
     ! use constants, only: dp

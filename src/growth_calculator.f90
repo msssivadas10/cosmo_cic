@@ -1,3 +1,6 @@
+!!
+!! Linear growth calculations
+!!
 module growth_calculator
     use iso_fortran_env, only: dp => real64
     use constants, only: PI, SPEED_OF_LIGHT_KMPS, EPS

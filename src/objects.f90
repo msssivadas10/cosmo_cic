@@ -1,3 +1,6 @@
+!!
+!! Definitions of some types holding cosmology parameters.
+!!
 module objects
     use iso_fortran_env, only: dp => real64
     use constants, only: EPS, DELTA_SC

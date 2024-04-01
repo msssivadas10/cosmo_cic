@@ -1,8 +1,9 @@
+!!
+!! Some constants...
+!!
 module constants
     use iso_fortran_env, only: dp => real64
     implicit none
-
-    ! integer, parameter  :: dp  = 8
 
     real(dp), parameter :: EPS = 1.0e-08 !! tolerance 
 

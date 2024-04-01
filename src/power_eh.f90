@@ -1,3 +1,6 @@
+!!
+!! Linear matter power spectrum models by Eisenstein & Hu (1998).
+!!
 module power_eh
     use iso_fortran_env, only: dp => real64
     ! use constants, only: dp

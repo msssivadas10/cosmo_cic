@@ -1,3 +1,6 @@
+!!
+!! Some halo mass-function models
+!!
 module massfunc_models
     use iso_fortran_env, only: dp => real64
     use constants, only: PI
