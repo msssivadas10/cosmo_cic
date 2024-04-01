@@ -43,7 +43,7 @@ program main
                 return
             end if
 
-            open(fo, file = 'test/z_out.csv')
+            open(fo, file = 'z_out.csv')
 
             !! header
             write (fo,'(5(a,a))') 'redshift',', ','dist_Mpc',', ','vol_Mpc^3',', ','D_+',', ','f_+'
@@ -116,7 +116,7 @@ program main
             end if
             ! write (*,*) cm%ps_norm
 
-            open(fo, file = 'test/power.csv')
+            open(fo, file = 'power.csv')
 
             !! header
             write (fo,'(7(a,a))') 'x',', ','tk',', ','pk',', ','dlnpk',', ',', ','s',', ','dlns',', ','d2lns'
