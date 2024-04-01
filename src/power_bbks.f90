@@ -14,7 +14,7 @@ module power_bbks
 
     public :: tf_sugiyama95_calculate_params, tf_sugiyama95
     public :: get_power_spectrum, get_power_unnorm
-    public :: set_normalization
+    public :: get_variance, set_normalization, get_normalization
     
 contains
 

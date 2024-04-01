@@ -78,7 +78,7 @@ contains
         real(dp), intent(out), optional :: s
         integer , intent(out), optional :: stat 
 
-        real(dp) :: r_lag, rho_m, sigma
+        real(dp) :: r_lag, rho_m, sigma, nu
         integer  :: stat2 = 0
 
         if ( m < 0. ) stat2 = 1
@@ -104,7 +104,8 @@ contains
         if ( present(s) ) s = sigma
 
         !! calculate bias function b(sigma)
-        call bf(sigma, z, Delta, cm, bm, stat = stat2)
+        nu = cm%get_collapse_density(z) / sigma
+        call bf(nu, z, Delta, cm, bm, stat = stat2)
         if ( present(stat) ) stat = stat2
         if ( stat2 .ne. 0 ) return !! return with error
         
@@ -127,7 +128,7 @@ contains
         real(dp), intent(out), optional :: fs, s, dlns  
         integer , intent(out), optional :: stat 
 
-        real(dp) :: sigma
+        real(dp) :: sigma, nu
         integer  :: stat2 = 0
 
         if ( m < 0. ) stat2 = 1   
@@ -145,7 +146,8 @@ contains
         if ( present(s) ) s = sigma
 
         !! calculate bias function b(sigma)
-        call bf(sigma, z, Delta, cm, bm, stat = stat2)
+        nu = cm%get_collapse_density(z) / sigma
+        call bf(nu, z, Delta, cm, bm, stat = stat2)
         if ( present(stat) ) stat = stat2
         if ( stat2 .ne. 0 ) return !! return with error
         

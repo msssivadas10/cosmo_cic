@@ -70,7 +70,7 @@ contains
         C1 = 0.019 + 0.107 * y + 0.19 * exp( -( 4. / y )**4 )
         c  = 2.4_dp
 
-        retval = 1.0 - A * nu**a / ( nu**a + DELTA_SC**a ) + B * nu**b + C * nu**c
+        retval = 1.0 - A1 * nu**a / ( nu**a + DELTA_SC**a ) + B1 * nu**b + C1 * nu**c
         if ( present(stat) ) stat   = 0
 
     end subroutine bf_tinker10

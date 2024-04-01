@@ -35,7 +35,8 @@ module power_eh
 
     public :: tf_eisenstein98_calculate_params, tf_eisenstein98
     public :: tf_eisenstein98_with_bao, tf_eisenstein98_with_neutrino, tf_eisenstein98_zero_baryon
-    public :: get_power_spectrum, get_variance, set_normalization, get_normalization
+    public :: get_power_spectrum, get_power_unnorm
+    public :: get_variance, set_normalization, get_normalization
     
 contains
 
