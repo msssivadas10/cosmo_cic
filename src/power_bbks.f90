@@ -1,21 +1,20 @@
 module power_bbks
     use constants, only: dp
-    use numerical, only: quadrule
     use objects, only: cosmology_model
     use growth_calculator, only: calculate_linear_growth
-    use variance_calculator
+    use interfaces, only: var_calculate
     implicit none
 
     private
 
-    real(dp) :: theta     !! CMB temperaure in 2.7K unit
-    real(dp) :: dplus0    !! Growth factor scaling
-    real(dp) :: Gamma_eff !! Shape parameter
-    real(dp) :: NORM     = 1.0_dp !! Power spectrum normalization factor so that sigma^2(8 Mpc/h) = 1
+    real(dp) :: theta         !! CMB temperaure in 2.7K unit
+    real(dp) :: dplus0        !! Growth factor scaling
+    real(dp) :: Gamma_eff     !! Shape parameter
+    real(dp) :: NORM = 1.0_dp !! Power spectrum normalization factor so that sigma^2(8 Mpc/h) = 1
 
     public :: tf_sugiyama95_calculate_params, tf_sugiyama95
-    public :: set_filter
-    public :: set_normalization, get_power_spectrum, get_variance
+    public :: get_power_spectrum, get_power_unnorm
+    public :: set_normalization
     
 contains
 
@@ -23,28 +22,31 @@ contains
     !! Calculate the quantities related to BBKS linear transfer function.
     !!
     !! Parameters:
-    !!  cm: cosmology_model - Cosmology parameters.
-    !!  qrule: quadrule - Integration rule for growth calculations
-    !!  bbks : logical  - Tells if to use original BBKS or corrected version.
+    !!  cm      : cosmology_model - Cosmology parameters.
+    !!  use_bbks: logical         - Tells if to use original BBKS or corrected version.
+    !!  stat    : integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_sugiyama95_calculate_params(cm, qrule, bbks) 
+    subroutine tf_sugiyama95_calculate_params(cm, use_bbks, stat) 
         type(cosmology_model), intent(inout) :: cm !! cosmology parameters
-        type(quadrule), intent(in)    :: qrule !! integration rule
-        logical, intent(in), optional :: bbks 
+        logical, intent(in) , optional :: use_bbks 
+        integer, intent(out), optional :: stat
         
         real(dp) :: Om0, Ob0, h      
+        integer  :: stat2
         Om0   = cm%Omega_m
         Ob0   = cm%Omega_b
         h     = 0.01*cm%H0 !! hubble parameter in 100 km/sec/Mpc unit
         theta = cm%Tcmb0 / 2.7
         
         !! growth factor at z=0
-        call calculate_linear_growth(0.0_dp, cm, qrule, dplus0)
+        call calculate_linear_growth(0.0_dp, cm, dplus0, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
         
         Gamma_eff = Om0*h**2 !! shape parameter
         
-        if ( present(bbks) ) then
-            if ( bbks ) return !! use original BBKS function
+        if ( present(use_bbks) ) then
+            if ( use_bbks ) return !! use original BBKS function
         end if
         
         !! apply baryon correction factor
@@ -60,21 +62,21 @@ contains
     !!  k    : real            - Wavenumebr in 1/Mpc.
     !!  z    : real            - Redshift.
     !!  cm   : cosmology_model - Cosmology model parameters.
-    !!  qrule: quadrule        - Integration rule (for growth factor calculations).
     !!  tk   : real            - Transfer function.
     !!  dlntk: real            - 1-st log derivative of transfer function (optional).
+    !!  stat : integer         - Status flag. Non-zero for failure.
     !!
-    !!
-    subroutine tf_sugiyama95(k, z, cm, qrule, tk, dlntk)
+    subroutine tf_sugiyama95(k, z, cm, tk, dlntk, stat)
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule     !! integration rule
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
+        integer , intent(out), optional :: stat
 
         real(dp) :: dplus, q, t0, t1, t2, t3, t4
+        integer  :: stat2
 
         q = k / Gamma_eff !! dimensionless scale
 
@@ -88,7 +90,9 @@ contains
         tk = log(1. + t0) / t0 * ( 1. + t1 + t2 + t3 + t4 )**(-0.25)
         
         !! linear growth
-        call calculate_linear_growth(z, cm, qrule, dplus)
+        call calculate_linear_growth(z, cm, dplus, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
         dplus = dplus / dplus0 !! normalization
         tk = dplus * tk
 
@@ -110,35 +114,38 @@ contains
     !!  k    : real            - Wavenumber in 1/Mpc.
     !!  z    : real            - Redshift
     !!  cm   : cosmology_model - Cosmology parameters.
-    !!  qrule: quadrule        - Integration rule for growth calculations
     !!  pk   : real            - Value of calculated power spectrum (unit: Mpc^-3).
     !!  tk   : real            - Value of calculated transfer function (optional).
     !!  dlnpk: real            - Value of calculated log-derivative / effective index (optional).
+    !!  stat : integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine get_power_spectrum(k, z, cm, qrule, pk, tk, dlnpk) 
+    subroutine get_power_spectrum(k, z, cm, pk, tk, dlnpk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule     !! integration rule
         
         real(dp), intent(out) :: pk
         real(dp), intent(out), optional :: tk, dlnpk
+        integer , intent(out), optional :: stat
 
-        real(dp) :: f, dlnf, ns
+        real(dp) :: f, ns
+        integer  :: stat2
         ns = cm%ns
 
-        !! transfer function
-        if ( present(dlnpk) ) then
-            call tf_sugiyama95(k, z, cm, qrule, f, dlntk = dlnf)
+        !! check if k is negative
+        if ( k <= 0. ) then
+            if ( present(stat) ) stat = 1
+            return
+        end if
 
-            !! effective index: 1-st log-derivative of p(k) w.r.to k
-            dlnpk = ns*log(k) + 2*dlnf
-        else
-            call tf_sugiyama95(k, z, cm, qrule, f)
-        end if
-        if ( present(tk) ) then 
-            tk = f
-        end if
+        !! transfer function
+        call tf_sugiyama95(k, z, cm, f, dlntk = dlnpk, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
+        if ( present(tk) ) tk = f
+
+        !! effective index: 1-st log-derivative of p(k) w.r.to k
+        if ( present(dlnpk) ) dlnpk = ns*log(k) + 2*dlnpk
 
         !! power spectrum
         pk = NORM * k**ns * f**2
@@ -146,30 +153,75 @@ contains
     end subroutine get_power_spectrum
 
     !>
+    !! Calculate the linear matter power spectrum, without normalization.
+    !!
+    !! Parameters:
+    !!  k    : real            - Wavenumber in 1/Mpc.
+    !!  z    : real            - Redshift
+    !!  cm   : cosmology_model - Cosmology parameters.
+    !!  pk   : real            - Value of calculated power spectrum (unit: Mpc^-3).
+    !!  stat : integer         - Status flag. Non-zero for failure.
+    !! 
+    subroutine get_power_unnorm(k, z, cm, pk, stat) 
+        real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
+        real(dp), intent(in) :: z !! redshift
+        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        
+        real(dp), intent(out) :: pk
+        integer , intent(out), optional :: stat
+
+        integer  :: stat2 = 0
+        real(dp) :: ns
+        ns = cm%ns
+
+        !! check if k is negative
+        if ( k <= 0. ) then
+            if ( present(stat) ) stat = 1
+            return
+        end if
+
+        !! transfer function
+        call tf_sugiyama95(k, z, cm, pk, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
+
+        !! power spectrum
+        pk = k**ns * pk**2
+        
+    end subroutine get_power_unnorm
+
+    !>
     !! Calculate the smoothed linear variance of matter density. Calculated sigma^2 value is in
     !! units of `sigma8^2`.
     !!
     !! Parameters:
-    !!  r      : real            - Smoothing scale in Mpc.
-    !!  z      : real            - Redshift
-    !!  cm     : cosmology_model - Cosmology parameters.
-    !!  qrule_k: quadrule        - Integration rule for variance calculations (limits must be set).
-    !!  qrule_z: quadrule        - Integration rule for growth calculations
-    !!  sigma  : real            - Value of calculated variance (unit: Mpc^-3).
-    !!  dlns   : real            - Value of calculated 1-st log-derivative (optional).
-    !!  d2lns  : real            - Value of calculated 2-nd log-derivative (optional).
+    !!  vc   : procedure       - Subroutine to calculate variance.
+    !!  r    : real            - Smoothing scale in Mpc.
+    !!  z    : real            - Redshift
+    !!  cm   : cosmology_model - Cosmology parameters.
+    !!  sigma: real            - Value of calculated variance (unit: Mpc^-3).
+    !!  dlns : real            - Value of calculated 1-st log-derivative (optional).
+    !!  d2lns: real            - Value of calculated 2-nd log-derivative (optional).
+    !!  stat : integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine get_variance(r, z, cm, qrule_k, qrule_z, sigma, dlns, d2lns) 
+    subroutine get_variance(vc, r, z, cm, sigma, dlns, d2lns, stat) 
+        procedure(var_calculate) :: vc
         real(dp), intent(in) :: r !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule_k, qrule_z !! integration rule
         
         real(dp), intent(out) :: sigma
         real(dp), intent(out), optional :: dlns, d2lns
+        integer , intent(out), optional :: stat 
+        integer :: stat2 = 0
 
-        call calculate_variance(tf_sugiyama95, r, z, cm, qrule_k, qrule_z, sigma, dlns, d2lns)    
-        sigma = NORM * sigma !! normalization
+        !! calculate variance
+        call vc(get_power_unnorm, r, z, cm, sigma, dlns = dlns, d2lns = d2lns, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
+
+        !! normalization
+        sigma = NORM * sigma 
         
     end subroutine get_variance
 
@@ -178,14 +230,24 @@ contains
     !!
     !! Parameters:
     !!  cm     : cosmology_model - Cosmology parameters.
-    !!  qrule_k: quadrule        - Integration rule for variance calculations (limits must be set).
-    !!  qrule_z: quadrule        - Integration rule for growth calculations
     !! 
-    subroutine set_normalization(cm, qrule_k, qrule_z)
+    subroutine set_normalization(vc, cm, stat)
+        procedure(var_calculate) :: vc
         type(cosmology_model), intent(inout) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule_k, qrule_z !! integration rule
+        integer , intent(out), optional :: stat 
 
-        call calculate_sigma8_normalization(tf_sugiyama95, cm, qrule_k, qrule_z, NORM)
+        real(dp) :: calculated, r, z
+        integer  :: stat2 = 0
+        r = 8.0 / (0.01 * cm%H0) !! = 8 Mpc/h
+        z = 0._dp
+
+        !! calculating variance at 8 Mpc/h
+        call get_variance(vc, r, z, cm, calculated, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
+
+        !! normalization
+        NORM = 1. / calculated
         
     end subroutine set_normalization
     
