@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from cic.models2.cosmology import Cosmology
 
 cm = Cosmology(0.7, 0.30, 0.05, ns = 1, sigma8 = 0.8)
-cm.link(power_spectrum = 'eisenstein98_zb', window = 'tophat')
+cm.link(power_spectrum = 'eisenstein98_zb', window = 'tophat', mass_function='tinker08', halo_bias='tinker10')
 # print(cm)
 
 plt.figure()
@@ -32,7 +32,7 @@ plt.figure()
 # plt.plot(z, x4, '-o', ms = 10)
 # plt.plot(z, y4, 'o')
 
-k, y1, y2, y3, y4, y5, y6 = np.loadtxt('tests/power.csv', skiprows = 1, delimiter = ',', unpack = 1)
+# k, y1, y2, y3 = np.loadtxt('tests/power.csv', skiprows = 1, delimiter = ',', unpack = 1)
 
 # x1 = cm.matterTransferFunction(k/cm.h, 0.)
 # plt.loglog(k, x1, '-o', ms = 10)
@@ -46,17 +46,30 @@ k, y1, y2, y3, y4, y5, y6 = np.loadtxt('tests/power.csv', skiprows = 1, delimite
 # plt.semilogx(k, x3, '-o', ms = 10)
 # plt.semilogx(k, y3, 'o')
 
-# x4 = cm.matterVariance(k*cm.h, 0., normalize=1)
-# plt.loglog(k, x4, '-o', ms = 10)
-# plt.loglog(k, y4, 'o')
+# m, y1, y2, y3, y4, y5 = np.loadtxt('tests/mfbf_z0.csv', skiprows = 1, delimiter = ',', unpack = 1)
+# z = 0
+# m, y1, y2, y3, y4, y5 = np.loadtxt('tests/mfbf_z2.csv', skiprows = 1, delimiter = ',', unpack = 1)
+# z = 2
 
-# x5 = cm.matterVariance(k*cm.h, 0., 1)
-# plt.semilogx(k, x5, '-o', ms=10)
-# plt.semilogx(k, y5, 'o')
+# x1 = cm.matterVariance(cm.lagrangianR(m*cm.h), z, normalize=1)**0.5
+# plt.loglog(m, x1, '-o', ms = 10)
+# plt.loglog(m, y1, 'o')
 
-# x6 = cm.matterVariance(k*cm.h, 0., 2)
-# plt.semilogx(k, x6, '-o', ms=10)
-# plt.semilogx(k, y6, 'o')
+# x2 = cm.matterVariance(cm.lagrangianR(m*cm.h), z, 1) / 6.
+# plt.semilogx(m, x2, '-o', ms=10)
+# plt.semilogx(m, y2, 'o')
+
+# x3 = cm.haloMassFunction(m*cm.h, z, 200., retval='dndlnm') * cm.h**3
+# plt.loglog(m, x3, '-o', ms=10)
+# plt.loglog(m, y3, 'o')
+
+# x4 = cm.haloMassFunction(m*cm.h, z, 200., retval='f') 
+# plt.loglog(m, x4, '-o', ms=10)
+# plt.loglog(m, y4, 'o')
+
+# x5 = cm.haloBias(m*cm.h, z, 200.) 
+# plt.loglog(m, x5, '-o', ms=10)
+# plt.loglog(m, y5, 'o')
 
 plt.show()
 
