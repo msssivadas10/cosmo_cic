@@ -46,10 +46,8 @@ plt.figure()
 # plt.semilogx(k, x3, '-o', ms = 10)
 # plt.semilogx(k, y3, 'o')
 
-# m, y1, y2, y3, y4, y5 = np.loadtxt('tests/mfbf_z0.csv', skiprows = 1, delimiter = ',', unpack = 1)
-# z = 0
-# m, y1, y2, y3, y4, y5 = np.loadtxt('tests/mfbf_z2.csv', skiprows = 1, delimiter = ',', unpack = 1)
 # z = 2
+# m, y1, y2, y3, y4, y5 = np.loadtxt('tests/mfbf_z%.1f.csv' % z, skiprows = 1, delimiter = ',', unpack = 1)
 
 # x1 = cm.matterVariance(cm.lagrangianR(m*cm.h), z, normalize=1)**0.5
 # plt.loglog(m, x1, '-o', ms = 10)
@@ -72,7 +70,6 @@ plt.figure()
 # plt.loglog(m, y5, 'o')
 
 plt.show()
-
 
 # x = [200,   300,   400,   600,   800,   1200,  1600,  2400,  3200 ]
 # y = [0.186, 0.200, 0.212, 0.218, 0.248, 0.255, 0.260, 0.260, 0.260]
