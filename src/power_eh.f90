@@ -35,7 +35,7 @@ module power_eh
 
     public :: tf_eisenstein98_calculate_params, tf_eisenstein98
     public :: tf_eisenstein98_with_bao, tf_eisenstein98_with_neutrino, tf_eisenstein98_zero_baryon
-    public :: get_power_spectrum, get_variance, set_normalization
+    public :: get_power_spectrum, get_variance, set_normalization, get_normalization
     
 contains
 
@@ -560,5 +560,13 @@ contains
         NORM = 1. / calculated
         
     end subroutine set_normalization
+
+    !>
+    !! Get the current normalization factor.
+    !!
+    function get_normalization() result(retval)
+        real(dp) :: retval
+        retval = NORM
+    end function get_normalization
     
 end module power_eh

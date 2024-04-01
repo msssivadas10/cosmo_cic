@@ -246,5 +246,13 @@ contains
         NORM = 1. / calculated
         
     end subroutine set_normalization
+
+    !>
+    !! Get the current normalization factor.
+    !!
+    function get_normalization() result(retval)
+        real(dp) :: retval
+        retval = NORM
+    end function get_normalization
     
 end module power_bbks
