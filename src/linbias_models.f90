@@ -4,6 +4,8 @@ module linbias_models
     implicit none
 
     private
+
+    public :: bf_cole89, bf_tinker10
     
 contains
 
@@ -29,10 +31,10 @@ contains
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
-        integer , intent(out) :: stat
+        integer , intent(out), optional :: stat
 
         retval = 1.0 + ( nu**2 - 1.0 ) / DELTA_SC
-        stat   = 0
+        if ( present(stat) ) stat   = 0
         
     end subroutine bf_cole89
 
@@ -56,7 +58,7 @@ contains
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
-        integer , intent(out) :: stat
+        integer , intent(out), optional :: stat
         real(dp) :: y, A1, a, B1, b, C1, c
 
         !! parameters
@@ -69,7 +71,7 @@ contains
         c  = 2.4_dp
 
         retval = 1.0 - A * nu**a / ( nu**a + DELTA_SC**a ) + B * nu**b + C * nu**c
-        stat   = 0
+        if ( present(stat) ) stat   = 0
 
     end subroutine bf_tinker10
     

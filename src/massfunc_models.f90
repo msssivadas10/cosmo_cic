@@ -23,13 +23,12 @@ contains
     !! based on spherical collapse.
     !!
     !! Parameters:
-    !!  s    : real            
-    !!  z    : real            - Redshift
-    !!  Delta: real            - Overdensity relative to mean density.
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!
-    !! Returns:
-    !!  retval: real
+    !!  s     : real            
+    !!  z     : real            - Redshift
+    !!  Delta : real            - Overdensity relative to mean density.
+    !!  cm    : cosmology_model - Cosmology parameters.
+    !!  retval: real            - Calculated value.
+    !!  stat  : integer         - Status flag.
     !!
     subroutine mf_pres74(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
@@ -38,12 +37,12 @@ contains
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
-        integer , intent(out) :: stat
+        integer , intent(out), optional :: stat
         real(dp) :: nu
 
         nu     = cm%get_collapse_density(z) / s
         retval = sqrt( 2./PI ) * nu * exp(-0.5*nu**2)
-        stat   = 0
+        if ( present(stat) ) stat   = 0
         
     end subroutine mf_pres74
 
@@ -52,13 +51,12 @@ contains
     !! on ellipsoidal collapse.
     !!
     !! Parameters:
-    !!  s    : real            
-    !!  z    : real            - Redshift
-    !!  Delta: real            - Overdensity relative to mean density.
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!
-    !! Returns:
-    !!  retval: real
+    !!  s     : real            
+    !!  z     : real            - Redshift
+    !!  Delta : real            - Overdensity relative to mean density.
+    !!  cm    : cosmology_model - Cosmology parameters.
+    !!  retval: real            - Calculated value.
+    !!  stat  : integer         - Status flag.
     !!
     subroutine mf_sheth01(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
@@ -67,7 +65,7 @@ contains
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
-        integer , intent(out) :: stat
+        integer , intent(out), optional :: stat
         real(dp) :: nu
 
         !! parameters
@@ -77,7 +75,7 @@ contains
 
         nu     = cm%get_collapse_density(z) / s
         retval = A_ * sqrt( 2.*a / PI ) * nu * exp(-0.5*a*nu**2) * ( 1. + (nu**2 / a)**(-p) )
-        stat   = 0
+        if ( present(stat) ) stat   = 0
         
     end subroutine mf_sheth01
 
@@ -87,13 +85,12 @@ contains
     !! Reference: <http://arxiv.org/abs/astro-ph/0005260v2>
     !!
     !! Parameters:
-    !!  s    : real            
-    !!  z    : real            - Redshift
-    !!  Delta: real            - Overdensity relative to mean density.
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!
-    !! Returns:
-    !!  retval: real
+    !!  s     : real            
+    !!  z     : real            - Redshift
+    !!  Delta : real            - Overdensity relative to mean density.
+    !!  cm    : cosmology_model - Cosmology parameters.
+    !!  retval: real            - Calculated value.
+    !!  stat  : integer         - Status flag.
     !!
     subroutine mf_jenkins01(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
@@ -102,10 +99,10 @@ contains
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
-        integer , intent(out) :: stat
+        integer , intent(out), optional :: stat
 
         retval = 0.315 * ( -abs( 0.61 - log(s) )**(3.8) )
-        stat   = 0
+        if ( present(stat) ) stat   = 0
 
     end subroutine mf_jenkins01
 
@@ -115,13 +112,12 @@ contains
     !! Reference: <http://arXiv.org/abs/astro-ph/0702360v2>
     !!
     !! Parameters:
-    !!  s    : real            
-    !!  z    : real            - Redshift
-    !!  Delta: real            - Overdensity relative to mean density.
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!
-    !! Returns:
-    !!  retval: real
+    !!  s     : real            
+    !!  z     : real            - Redshift
+    !!  Delta : real            - Overdensity relative to mean density.
+    !!  cm    : cosmology_model - Cosmology parameters.
+    !!  retval: real            - Calculated value.
+    !!  stat  : integer         - Status flag.
     !!
     subroutine mf_reed03(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
@@ -130,13 +126,13 @@ contains
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
-        integer , intent(out) :: stat
+        integer , intent(out), optional :: stat
 
         call mf_sheth01(s, z, Delta, cm, retval, stat)
         if ( stat .ne. 0 ) return
          
         retval = retval * exp( -0.7 / s / cosh(2*s)**5. )
-        stat   = 0
+        if ( present(stat) ) stat   = 0
         
     end subroutine mf_reed03
 
@@ -146,13 +142,12 @@ contains
     !! Reference: <http://arXiv.org/abs/astro-ph/0702360v2>
     !!
     !! Parameters:
-    !!  s    : real            
-    !!  z    : real            - Redshift
-    !!  Delta: real            - Overdensity relative to mean density.
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!
-    !! Returns:
-    !!  retval: real
+    !!  s     : real            
+    !!  z     : real            - Redshift
+    !!  Delta : real            - Overdensity relative to mean density.
+    !!  cm    : cosmology_model - Cosmology parameters.
+    !!  retval: real            - Calculated value.
+    !!  stat  : integer         - Status flag.
     !!
     subroutine mf_warren06(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
@@ -161,7 +156,7 @@ contains
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
-        integer , intent(out) :: stat
+        integer , intent(out), optional :: stat
 
         !! parameters
         real(dp), parameter :: A_ = 0.7234_dp
@@ -170,7 +165,7 @@ contains
         real(dp), parameter :: c  = 1.1982_dp
         
         retval = A_ * ( s**(-a) + b ) * exp( -c/s**2 )
-        stat   = 0
+        if ( present(stat) ) stat   = 0
 
     end subroutine mf_warren06
 
@@ -180,13 +175,12 @@ contains
     !! Reference: <http://arxiv.org/abs/0907.0019v2>
     !!
     !! Parameters:
-    !!  s    : real            
-    !!  z    : real            - Redshift
-    !!  Delta: real            - Overdensity relative to mean density.
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!
-    !! Returns:
-    !!  retval: real
+    !!  s     : real            
+    !!  z     : real            - Redshift
+    !!  Delta : real            - Overdensity relative to mean density.
+    !!  cm    : cosmology_model - Cosmology parameters.
+    !!  retval: real            - Calculated value.
+    !!  stat  : integer         - Status flag.
     !!
     subroutine mf_crocce01(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
@@ -195,7 +189,7 @@ contains
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
-        integer , intent(out) :: stat
+        integer , intent(out), optional :: stat
         real(dp) :: zp1
 
         !! parameters
@@ -207,7 +201,7 @@ contains
         cz  = 1.036 * zp1**(-0.024)
 
         retval = Aaz * ( s**(-az) + bz ) * exp( -cz / s**2 )
-        stat   = 0
+        if ( present(stat) ) stat   = 0
         
     end subroutine mf_crocce01
 
@@ -217,13 +211,12 @@ contains
     !! Reference: J. Courtin et al. Mon. Not. R. Astron. Soc. 410, 1911-1931 (2011)
     !!
     !! Parameters:
-    !!  s    : real            
-    !!  z    : real            - Redshift
-    !!  Delta: real            - Overdensity relative to mean density.
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!
-    !! Returns:
-    !!  retval: real
+    !!  s     : real            
+    !!  z     : real            - Redshift
+    !!  Delta : real            - Overdensity relative to mean density.
+    !!  cm    : cosmology_model - Cosmology parameters.
+    !!  retval: real            - Calculated value.
+    !!  stat  : integer         - Status flag.
     !!
     subroutine mf_courtin10(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
@@ -232,7 +225,7 @@ contains
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
-        integer , intent(out) :: stat
+        integer , intent(out), optional :: stat
         real(dp) :: nu
 
         !! parameters
@@ -242,7 +235,7 @@ contains
 
         nu     = cm%get_collapse_density(z) / s
         retval = A_ * sqrt( 2.*a / PI ) * nu * exp(-0.5*a*nu**2) * ( 1. + (nu**2 / a)**(-p) )
-        stat   = 0
+        if ( present(stat) ) stat   = 0
         
     end subroutine mf_courtin10
 
@@ -252,13 +245,12 @@ contains
     !! Reference: <http://arXiv.org/abs/0803.2706v1>
     !!
     !! Parameters:
-    !!  s    : real            
-    !!  z    : real            - Redshift
-    !!  Delta: real            - Overdensity relative to mean density.
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!
-    !! Returns:
-    !!  retval: real
+    !!  s     : real            
+    !!  z     : real            - Redshift
+    !!  Delta : real            - Overdensity relative to mean density.
+    !!  cm    : cosmology_model - Cosmology parameters.
+    !!  retval: real            - Calculated value.
+    !!  stat  : integer         - Status flag.
     !!
     subroutine mf_tinker08(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
@@ -267,7 +259,7 @@ contains
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
-        integer , intent(out) :: stat
+        integer , intent(out), optional :: stat
         real(dp) :: zp1, t
         real(dp) :: alpha, A1, a, b, c
         integer  :: i
@@ -293,7 +285,7 @@ contains
 
         !! mass function (eqn. 3)
         retval = A1 * ( 1 + ( b / s )**a ) * exp( -c / s**2 ) 
-        stat   = 0
+        if ( present(stat) ) stat   = 0 
         
     end subroutine mf_tinker08
     
