@@ -238,7 +238,7 @@ contains
         z = 0._dp
 
         !! calculating variance at 8 Mpc/h
-        call get_variance(vc, r, z, cm, calculated, stat = stat2)
+        call vc(get_power_unnorm, r, z, cm, calculated, stat = stat2)
         if ( present(stat) ) stat = stat2
         if ( stat2 .ne. 0 ) return
 
