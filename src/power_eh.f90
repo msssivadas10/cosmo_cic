@@ -1,9 +1,8 @@
 module power_eh
     use constants, only: dp
-    use numerical, only: quadrule
     use objects, only: cosmology_model
     use growth_calculator, only: calculate_linear_growth
-    use variance_calculator
+    use interfaces, only: var_calculate
     implicit none
 
     private
@@ -36,7 +35,6 @@ module power_eh
 
     public :: tf_eisenstein98_calculate_params, tf_eisenstein98
     public :: tf_eisenstein98_with_bao, tf_eisenstein98_with_neutrino, tf_eisenstein98_zero_baryon
-    public :: set_filter !! set filter function 
     public :: get_power_spectrum, get_variance, set_normalization
     
 contains
@@ -46,15 +44,16 @@ contains
     !!
     !! Parameters:
     !!  cm     : cosmology_model - Cosmology parameters.
-    !!  qrule  : quadrule        - Integration rule for growth calculations
     !!  version: integer         - Which version to use: BAO (1), neutrino (2) or zero baryon.  
+    !!  stat   : integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_eisenstein98_calculate_params(cm, qrule, version) 
+    subroutine tf_eisenstein98_calculate_params(cm, version, stat) 
         type(cosmology_model), intent(inout) :: cm !! cosmology parameters
-        type(quadrule), intent(in)    :: qrule     !! integration rule
         integer, intent(in), optional :: version
+        integer, intent(out), optional :: stat
 
         real(dp) :: c1, c2, yd, k_eq, R_eq, R_d, y, Gy
+        integer  :: stat2 = 0
         h     = 0.01*cm%H0
         Omh2  = cm%Omega_m*h**2
         Obh2  = cm%Omega_b*h**2
@@ -73,7 +72,9 @@ contains
         end if
 
         !! growth factor at z=0
-        call calculate_linear_growth(0.0_dp, cm, qrule, dplus0)
+        call calculate_linear_growth(0.0_dp, cm, dplus0, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
 
         !! redshift at matter-radiation equality (eqn. 1)
         z_eq = 2.5e+04 * Omh2 / theta**4 
@@ -163,19 +164,27 @@ contains
     !!  k    : real            - Wavenumber in 1/Mpc.
     !!  z    : real            - Redshift
     !!  cm   : cosmology_model - Cosmology parameters.
-    !!  qrule: quadrule        - Integration rule for growth calculations
     !!  tk   : real            - Value of calculated transfer function.
     !!  dlntk: real            - Value of calculated log-derivative
+    !!  stat : integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_eisenstein98_zero_baryon(k, z, cm, qrule, tk, dlntk)
+    subroutine tf_eisenstein98_zero_baryon(k, z, cm, tk, dlntk, stat)
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule     !! integration rule
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
+        integer , intent(out), optional :: stat
+
         real(dp) :: gamma_eff, dplus, q, t1, t2, t3, dt2, dt3
+        integer  :: stat2 = 0
+
+        !! check if k is negative
+        if ( k <= 0. ) then
+            if ( present(stat) ) stat = 1
+            return
+        end if
 
         !! eqn. 30  
         gamma_eff = Omh2 * ( alpha_g + ( 1 - alpha_g ) / ( 1 + ( 0.43*k*s )**4 ) )
@@ -191,7 +200,9 @@ contains
         tk = t2 / (t2 + t3*q**2) 
         
         !! linear growth
-        call calculate_linear_growth(z, cm, qrule, dplus)
+        call calculate_linear_growth(z, cm, dplus, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
         dplus = dplus / dplus0 !! normalization
         tk    = tk * dplus
 
@@ -211,21 +222,28 @@ contains
     !!  k    : real            - Wavenumber in 1/Mpc.
     !!  z    : real            - Redshift
     !!  cm   : cosmology_model - Cosmology parameters.
-    !!  qrule: quadrule        - Integration rule for growth calculations
     !!  tk   : real            - Value of calculated transfer function.
     !!  dlntk: real            - Value of calculated log-derivative
+    !!  stat : integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_eisenstein98_with_neutrino(k, z, cm, qrule, tk, dlntk) 
+    subroutine tf_eisenstein98_with_neutrino(k, z, cm, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule     !! integration rule
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
+        integer , intent(out), optional :: stat
 
         real(dp) :: gamma_eff, sqrt_alpha, yfs, dnorm
         real(dp) :: dplus, bk, B, q, q_eff, q_nu, t1, t2, t3, dt2, dt3, dbk, dzk, dlndzk
+        integer  :: stat2 = 0
+
+        !! check if k is negative
+        if ( k <= 0. ) then
+            if ( present(stat) ) stat = 1
+            return
+        end if
         
         q = k*theta**2 / Omh2 !! eqn. 5
         
@@ -258,7 +276,9 @@ contains
         end if
 
         !! linear growth (eqn. 12-14)
-        call calculate_linear_growth(z, cm, qrule, dplus) !! without suppression
+        call calculate_linear_growth(z, cm, dplus, stat = stat2)  !! without suppression
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
         dnorm = 2.5*Omh2*(z_eq + 1.)/h**2
         dplus = dnorm * dplus !! normalization
 
@@ -292,21 +312,29 @@ contains
     !!  k    : real            - Wavenumber in 1/Mpc.
     !!  z    : real            - Redshift
     !!  cm   : cosmology_model - Cosmology parameters.
-    !!  qrule: quadrule        - Integration rule for growth calculations
     !!  tk   : real            - Value of calculated transfer function.
     !!  dlntk: real            - Value of calculated log-derivative
+    !!  stat : integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_eisenstein98_with_bao(k, z, cm, qrule, tk, dlntk) 
+    subroutine tf_eisenstein98_with_bao(k, z, cm, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule     !! integration rule
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
+        integer , intent(out), optional :: stat
 
         real(dp) :: dplus
         real(dp) :: q, t0b, t0ab, dt0b, dt0ab, t1, t2, t3, t4, dt2, dt3, dt4, f, df, st
+        integer  :: stat2 = 0
+
+
+        !! check if k is negative
+        if ( k <= 0. ) then
+            if ( present(stat) ) stat = 1
+            return
+        end if
 
         !! eqn. 10
         q = k/Omh2 * theta**2
@@ -356,7 +384,9 @@ contains
         end if
 
         !! linear growth
-        call calculate_linear_growth(z, cm, qrule, dplus)
+        call calculate_linear_growth(z, cm, dplus, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
         dplus = dplus / dplus0 !! normalization
         tk    = tk * dplus
         
@@ -371,25 +401,25 @@ contains
     !!  k    : real            - Wavenumber in 1/Mpc.
     !!  z    : real            - Redshift
     !!  cm   : cosmology_model - Cosmology parameters.
-    !!  qrule: quadrule        - Integration rule for growth calculations
     !!  tk   : real            - Value of calculated transfer function.
     !!  dlntk: real            - Value of calculated log-derivative
+    !!  stat : integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_eisenstein98(k, z, cm, qrule, tk, dlntk) 
+    subroutine tf_eisenstein98(k, z, cm, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule     !! integration rule
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
+        integer , intent(out), optional :: stat
 
         if ( ps_model == PS_EH98_BAO ) then  !! model with bao
-            call tf_eisenstein98_with_bao(k, z, cm, qrule, tk, dlntk)
+            call tf_eisenstein98_with_bao(k, z, cm, tk, dlntk, stat = stat)
         else if ( ps_model == PS_EH98_NU  ) then  !! model with neutrino 
-            call tf_eisenstein98_with_neutrino(k, z, cm, qrule, tk, dlntk)
+            call tf_eisenstein98_with_neutrino(k, z, cm, tk, dlntk, stat = stat)
         else !! zero-baryon model (default)
-            call tf_eisenstein98_zero_baryon(k, z, cm, qrule, tk, dlntk)
+            call tf_eisenstein98_zero_baryon(k, z, cm, tk, dlntk, stat = stat)
         end if
                 
     end subroutine tf_eisenstein98
@@ -404,33 +434,32 @@ contains
     !!  k    : real            - Wavenumber in 1/Mpc.
     !!  z    : real            - Redshift
     !!  cm   : cosmology_model - Cosmology parameters.
-    !!  qrule: quadrule        - Integration rule for growth calculations
     !!  pk   : real            - Value of calculated power spectrum (unit: Mpc^-3).
     !!  tk   : real            - Value of calculated transfer function (optional).
     !!  dlnpk: real            - Value of calculated log-derivative / effective index (optional).
+    !!  stat : integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine get_power_spectrum(k, z, cm, qrule, pk, tk, dlnpk) 
+    subroutine get_power_spectrum(k, z, cm, pk, tk, dlnpk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule     !! integration rule
         
         real(dp), intent(out) :: pk
         real(dp), intent(out), optional :: tk, dlnpk
+        integer , intent(out), optional :: stat
 
         real(dp) :: f, ns
+        integer  :: stat2
         ns = cm%ns
 
         !! transfer function
-        call tf_eisenstein98(k, z, cm, qrule, f, dlntk = dlnpk)
-        if ( present(tk) ) then 
-            tk = f
-        end if
+        call tf_eisenstein98(k, z, cm, f, dlntk = dlnpk, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
+        if ( present(tk) ) tk = f
 
         !! effective index: 1-st log-derivative of p(k) w.r.to k
-        if ( present(dlnpk) ) then
-            dlnpk = ns + 2*dlnpk
-        end if
+        if ( present(dlnpk) ) dlnpk = ns + 2*dlnpk
 
         !! power spectrum, normalised so that sigma^2(8 Mpc/h) = 1  
         pk = NORM * k**ns * f**2
@@ -438,30 +467,69 @@ contains
     end subroutine get_power_spectrum
 
     !>
+    !! Calculate the linear matter power spectrum, without normalization.
+    !!
+    !! Parameters:
+    !!  k    : real            - Wavenumber in 1/Mpc.
+    !!  z    : real            - Redshift
+    !!  cm   : cosmology_model - Cosmology parameters.
+    !!  pk   : real            - Value of calculated power spectrum (unit: Mpc^-3).
+    !!  stat : integer         - Status flag. Non-zero for failure.
+    !! 
+    subroutine get_power_unnorm(k, z, cm, pk, stat) 
+        real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
+        real(dp), intent(in) :: z !! redshift
+        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        
+        real(dp), intent(out) :: pk
+        integer , intent(out), optional :: stat
+
+        integer  :: stat2 = 0
+        real(dp) :: ns
+        ns = cm%ns
+
+        !! transfer function
+        call tf_eisenstein98(k, z, cm, pk, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
+
+        !! power spectrum
+        pk = k**ns * pk**2
+        
+    end subroutine get_power_unnorm
+
+    !>
     !! Calculate the smoothed linear variance of matter density. Calculated sigma^2 value is in
     !! units of `sigma8^2`.
     !!
     !! Parameters:
-    !!  r      : real            - Smoothing scale in Mpc.
-    !!  z      : real            - Redshift
-    !!  cm     : cosmology_model - Cosmology parameters.
-    !!  qrule_k: quadrule        - Integration rule for variance calculations (limits must be set).
-    !!  qrule_z: quadrule        - Integration rule for growth calculations
-    !!  sigma  : real            - Value of calculated variance (unit: Mpc^-3).
-    !!  dlns   : real            - Value of calculated 1-st log-derivative (optional).
-    !!  d2lns  : real            - Value of calculated 2-nd log-derivative (optional).
+    !!  vc   : procedure       - Subroutine to calculate variance.
+    !!  r    : real            - Smoothing scale in Mpc.
+    !!  z    : real            - Redshift
+    !!  cm   : cosmology_model - Cosmology parameters.
+    !!  sigma: real            - Value of calculated variance (unit: Mpc^-3).
+    !!  dlns : real            - Value of calculated 1-st log-derivative (optional).
+    !!  d2lns: real            - Value of calculated 2-nd log-derivative (optional).
+    !!  stat : integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine get_variance(r, z, cm, qrule_k, qrule_z, sigma, dlns, d2lns) 
+    subroutine get_variance(vc, r, z, cm, sigma, dlns, d2lns, stat) 
+        procedure(var_calculate) :: vc
         real(dp), intent(in) :: r !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule_k, qrule_z !! integration rule
         
         real(dp), intent(out) :: sigma
         real(dp), intent(out), optional :: dlns, d2lns
+        integer , intent(out), optional :: stat 
+        integer :: stat2 = 0
 
-        call calculate_variance(tf_eisenstein98, r, z, cm, qrule_k, qrule_z, sigma, dlns, d2lns)
-        sigma = NORM * sigma !! normalization
+        !! calculate variance
+        call vc(get_power_unnorm, r, z, cm, sigma, dlns = dlns, d2lns = d2lns, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
+
+        !! normalization
+        sigma = NORM * sigma 
         
     end subroutine get_variance
 
@@ -469,15 +537,27 @@ contains
     !! Calculate sigma-8 normalization.
     !!
     !! Parameters:
-    !!  cm     : cosmology_model - Cosmology parameters.
-    !!  qrule_k: quadrule        - Integration rule for variance calculations (limits must be set).
-    !!  qrule_z: quadrule        - Integration rule for growth calculations
+    !!  vc  : procedure       - Subroutine to calculate variance.
+    !!  cm  : cosmology_model - Cosmology parameters.
+    !!  stat: integer         - Status flag. Non-zero for failure.
     !! 
-    subroutine set_normalization(cm, qrule_k, qrule_z)
+    subroutine set_normalization(vc, cm, stat)
+        procedure(var_calculate) :: vc
         type(cosmology_model), intent(inout) :: cm !! cosmology parameters
-        type(quadrule), intent(in) :: qrule_k, qrule_z !! integration rule
+        integer , intent(out), optional :: stat 
 
-        call calculate_sigma8_normalization(tf_eisenstein98, cm, qrule_k, qrule_z, NORM)
+        real(dp) :: calculated, r, z
+        integer  :: stat2 = 0
+        r = 8.0 / (0.01 * cm%H0) !! = 8 Mpc/h
+        z = 0._dp
+
+        !! calculating variance at 8 Mpc/h
+        call get_variance(vc, r, z, cm, calculated, stat = stat2)
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
+
+        !! normalization
+        NORM = 1. / calculated
         
     end subroutine set_normalization
     

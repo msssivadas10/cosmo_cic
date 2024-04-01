@@ -32,7 +32,7 @@ contains
         integer, intent(out), optional :: stat
         
         real(dp) :: Om0, Ob0, h      
-        integer  :: stat2
+        integer  :: stat2 = 0
         Om0   = cm%Omega_m
         Ob0   = cm%Omega_b
         h     = 0.01*cm%H0 !! hubble parameter in 100 km/sec/Mpc unit
@@ -76,7 +76,13 @@ contains
         integer , intent(out), optional :: stat
 
         real(dp) :: dplus, q, t0, t1, t2, t3, t4
-        integer  :: stat2
+        integer  :: stat2 = 0
+
+        !! check if k is negative
+        if ( k <= 0. ) then
+            if ( present(stat) ) stat = 1
+            return
+        end if
 
         q = k / Gamma_eff !! dimensionless scale
 
@@ -129,14 +135,8 @@ contains
         integer , intent(out), optional :: stat
 
         real(dp) :: f, ns
-        integer  :: stat2
+        integer  :: stat2 = 0
         ns = cm%ns
-
-        !! check if k is negative
-        if ( k <= 0. ) then
-            if ( present(stat) ) stat = 1
-            return
-        end if
 
         !! transfer function
         call tf_sugiyama95(k, z, cm, f, dlntk = dlnpk, stat = stat2)
@@ -147,7 +147,7 @@ contains
         !! effective index: 1-st log-derivative of p(k) w.r.to k
         if ( present(dlnpk) ) dlnpk = ns*log(k) + 2*dlnpk
 
-        !! power spectrum
+        !! power spectrum, normalised so that sigma^2(8 Mpc/h) = 1  
         pk = NORM * k**ns * f**2
         
     end subroutine get_power_spectrum
@@ -173,12 +173,6 @@ contains
         integer  :: stat2 = 0
         real(dp) :: ns
         ns = cm%ns
-
-        !! check if k is negative
-        if ( k <= 0. ) then
-            if ( present(stat) ) stat = 1
-            return
-        end if
 
         !! transfer function
         call tf_sugiyama95(k, z, cm, pk, stat = stat2)
@@ -229,7 +223,9 @@ contains
     !! Calculate sigma-8 normalization.
     !!
     !! Parameters:
-    !!  cm     : cosmology_model - Cosmology parameters.
+    !!  vc  : procedure       - Subroutine to calculate variance.
+    !!  cm  : cosmology_model - Cosmology parameters.
+    !!  stat: integer         - Status flag. Non-zero for failure.
     !! 
     subroutine set_normalization(vc, cm, stat)
         procedure(var_calculate) :: vc
