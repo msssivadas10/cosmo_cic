@@ -14,15 +14,6 @@ module numerical
             real(dp) :: retval 
         end function
     end interface
-
-    !! Object to hold integration rule
-    type, public :: quadrule
-        integer :: n !! size of the rule
-        real(dp), allocatable :: x(:) !! nodes 
-        real(dp), allocatable :: w(:) !! weights
-        real(dp) :: a = -1.0_dp !! lower integration limit
-        real(dp) :: b =  1.0_dp !! upper integration limit
-    end type 
     
 contains
 
@@ -39,22 +30,26 @@ contains
     !! Generate gauss-legendre integration points and weights
     !! 
     !! Parameters:
-    !!  n  : integer  - Number of points to use. Must be a positive non-zero integer.
-    !!  obj: quadrule - Object storing generted nodes and weights arrays.
+    !!  n   : integer - Number of points to use. Must be a positive non-zero integer.
+    !!  x, w: real    - Calculated nodes and weights arrays.
+    !!  stat: integer - Status. 0 for success and 1 for failure.
+    !!  a, b: real    - Optional lower and upper limit.
     !!
-    subroutine generate_gaussleg(n, obj)
-        integer, intent(in) :: n    !! order of the rule: number of points
-        type(quadrule), intent(out) :: obj !! storage object
-        
-        ! real(dp), intent(out) :: x(n) !! integration nodes (points)
-        ! real(dp), intent(out) :: w(n) !! weights
-        real(dp) :: wj, xj, xj_old, pm, pn, ptmp
+    subroutine generate_gaussleg(n, x, w, stat, a, b)
+        integer , intent(in)  :: n    !! order of the rule: number of points
+        real(dp), intent(out) :: x(n) !! integration nodes (points)
+        real(dp), intent(out) :: w(n) !! weights
+        real(dp), intent(in) , optional :: a, b !! limits
+        integer , intent(out), optional :: stat
+
+        real(dp) :: wj, xj, xj_old, pm, pn, ptmp, xa, xb, shift, scale
         integer  :: j, k
 
-        !! allocating memory for the rule
-        obj%n = n
-        allocate( obj%x(n) )
-        allocate( obj%w(n) )
+        if ( n < 2 ) then !! why calculate for n < 2 ?
+            if ( present(stat) ) then
+                stat = 1
+            end if
+        end if 
 
         !! for odd order, x = 0 is the {floor(n/2)+1}-th node
         if ( modulo(n, 2) == 1 ) then
@@ -69,8 +64,8 @@ contains
                 pn   = ptmp
             end do
         
-            obj%x(n/2 + 1) = 0.d0
-            obj%w(n/2 + 1) = 2.d0 / (n*pm)**2 !! weight 
+            x(n/2 + 1) = 0.d0
+            w(n/2 + 1) = 2.d0 / (n*pm)**2 !! weight 
         end if
 
         !! other nodes
@@ -99,14 +94,39 @@ contains
 
             wj = 2.d0 * (1.d0 - xj**2) / (n*xj*pn - n*pm)**2 !! weight for j-th node
 
-            obj%x(j) = -xj
-            obj%w(j) =  wj
+            x(j) = -xj
+            w(j) =  wj
 
             !! weights are symmetric about x = 0
-            obj%x(n-j+1) = xj
-            obj%w(n-j+1) = wj
+            x(n-j+1) = xj
+            w(n-j+1) = wj
             
         end do
+
+        !! rescaling 
+        if ( present(a) .or. present(b) ) then
+            if ( present(a) ) then
+                xa = a
+            else
+                xa = -1.0_dp
+            end if
+            if ( present(b) ) then
+                xb = b
+            else
+                xb = 1.0_dp
+            end if
+            scale = 0.5*(xb - xa)
+            shift = xa + scale
+
+            do j = 1, n
+                x(j) = scale*x(j) + shift
+                w(j) = scale*w(j)
+            end do
+        end if
+
+        if ( present(stat) ) then
+            stat = 0 !! success
+        end if
 
     end subroutine generate_gaussleg
 
