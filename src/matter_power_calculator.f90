@@ -4,7 +4,7 @@
 module matter_power_calculator
     use iso_fortran_env, only: dp => real64
     use objects, only: cosmo_t
-    use variance_calculator, only: calculate_variance
+    use variance_calculator, only: vc => calculate_variance
     implicit none
     
     private
@@ -111,17 +111,19 @@ contains
     !!  pk   : real    - Value of calculated power spectrum (unit: Mpc^-3).
     !!  stat : integer - Status flag. Non-zero for failure.
     !! 
-    subroutine get_power_unnorm(k, z, cm, pk, stat) 
+    subroutine ps_calculate(k, cm, pk, args, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
-        real(dp), intent(in) :: z !! redshift
         type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: pk
+        real(dp), intent(in), optional :: args(:) !! additional arguments
         integer , intent(out), optional :: stat
-
+        
+        real(dp) :: z = 0.0_dp !! redshift (default is 0)
         integer  :: stat2 = 0
         real(dp) :: ns
         ns = cm%ns
+        if ( present(args) ) z = args(1) !! 1-st argument is the redshift
 
         if ( .not. has_tf ) then
             if ( present(stat) ) stat =  ERR_MODEL_NOT_SET_TF
@@ -136,7 +138,7 @@ contains
         !! power spectrum
         pk = k**ns * pk**2
         
-    end subroutine get_power_unnorm
+    end subroutine ps_calculate
 
     !>
     !! Calculate the smoothed linear variance of matter density. Calculated sigma^2 value is in
@@ -159,10 +161,13 @@ contains
         real(dp), intent(out) :: sigma
         real(dp), intent(out), optional :: dlns, d2lns
         integer , intent(out), optional :: stat 
+        real(dp), dimension(1) :: args
         integer :: stat2 = 0
 
+        args(1) = z !! 1-st argument is the redshift
+
         !! calculate variance
-        call calculate_variance(get_power_unnorm, r, z, cm, sigma, dlns = dlns, d2lns = d2lns, stat = stat2)
+        call vc(ps_calculate, r, z, cm, sigma, dlns = dlns, d2lns = d2lns, args = args, stat = stat2)
         if ( present(stat) ) stat = stat2
         if ( stat2 .ne. 0 ) return
 
@@ -188,7 +193,7 @@ contains
         z = 0._dp
 
         !! calculating variance at 8 Mpc/h
-        call calculate_variance(get_power_unnorm, r, z, cm, calculated, stat = stat2)
+        call vc(ps_calculate, r, z, cm, calculated, stat = stat2)
         if ( present(stat) ) stat = stat2
         if ( stat2 .ne. 0 ) return
 

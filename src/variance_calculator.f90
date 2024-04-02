@@ -12,14 +12,14 @@ module variance_calculator
 
     interface
         !! Interface to power spectrum calculator
-        subroutine ps_calculate(k, z, cm, pk, stat)
+        subroutine ps_calculate(k, cm, pk, args, stat)
             use iso_fortran_env, only: dp => real64
             ! use constants, only: dp
             use objects, only: cosmo_t
             real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
-            real(dp), intent(in) :: z !! redshift
             type(cosmo_t), intent(in) :: cm !! cosmology parameters
             real(dp), intent(out) :: pk
+            real(dp), intent(in), optional :: args(:) !! additional arguments
             integer , intent(out), optional :: stat
         end subroutine ps_calculate
     end interface
@@ -125,7 +125,7 @@ contains
     !!  dlns   : real      - Calculatetd 1-st log-derivative (optional)
     !!  d2lns  : real      - Calculatetd 2-nd log-derivative (optional)
     !!
-    subroutine calculate_variance(ps, r, z, cm, sigma, dlns, d2lns, stat)
+    subroutine calculate_variance(ps, r, z, cm, sigma, dlns, d2lns, args, stat)
         procedure(ps_calculate) :: ps !! power spectrum
         real(dp), intent(in) :: r !! scale in Mpc
         real(dp), intent(in) :: z !! redshift
@@ -133,6 +133,7 @@ contains
 
         real(dp), intent(out) :: sigma !! variance 
         real(dp), intent(out), optional :: dlns, d2lns 
+        real(dp), intent(in), optional :: args(:) !! additional arguments
         integer , intent(out), optional :: stat
 
         real(dp) :: k_shift, k_scale, lnka, lnkb
@@ -173,7 +174,7 @@ contains
             kr = k*r 
 
             !! calculating power spectrum
-            call ps(k, z, cm, pk, stat = stat2)
+            call ps(k, cm, pk, args = args, stat = stat2)
             if ( stat2 .ne. 0 ) exit !! error in power spectrum calculation
             pk = k**3 * pk
 
