@@ -42,18 +42,17 @@ module massfunc_bias_calculator
 
     !! Error flags
     integer, parameter :: ERR_INVALID_VALUE_Z  = 10 !! invalid value for redshift
-    integer, parameter :: ERR_INVALID_VALUE_M  = 11 !! invalid value for mass
-    integer, parameter :: ERR_CALC_NOT_SETUP   = 20 !! calculator not set up
+    integer, parameter :: ERR_INVALID_VALUE_M  = 20 !! invalid value for mass
     integer, parameter :: ERR_MODEL_NOT_SET_MF = 21 !! mass function model not set
     integer, parameter :: ERR_MODEL_NOT_SET_BF = 22 !! bias function model not set
+    integer, parameter :: ERR_CALC_NOT_SETUP   = 23 !! calculator not set up
 
     procedure(var_calculate), pointer :: vc => null() !! variance calculation
     procedure(fs_calculate) , pointer :: mf => null() !! halo mass-function model
     procedure(fs_calculate) , pointer :: bf => null() !! halo bias function model
-
-    logical  :: has_mf     = .false. 
-    logical  :: has_bf     = .false. 
-    logical  :: has_setup  = .false. 
+    logical  :: has_mf = .false. 
+    logical  :: has_bf = .false. 
+    logical  :: ready  = .false. 
 
     public :: calculate_massfunc
     public :: calculate_bias
@@ -74,7 +73,7 @@ contains
         procedure(var_calculate) :: vc1 !! variance calculation
         integer , intent(out):: stat
         vc => vc1
-        has_setup = .true.
+        ready = .true.
         stat      = 0
     end subroutine setup_massfunc_bias_calculator
 
@@ -141,7 +140,7 @@ contains
             return
         end if
 
-        if ( .not. has_setup ) then
+        if ( .not. ready ) then
             if ( present(stat) ) stat = ERR_CALC_NOT_SETUP 
             return
         end if

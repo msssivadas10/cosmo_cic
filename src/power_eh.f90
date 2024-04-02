@@ -3,7 +3,6 @@
 !!
 module power_eh
     use iso_fortran_env, only: dp => real64
-    ! use constants, only: dp
     use objects, only: cosmology_model
     use growth_calculator, only: calculate_linear_growth
     use variance_calculator, only: calculate_variance
@@ -36,6 +35,10 @@ module power_eh
     real(dp) :: yfs_over_q2   !! yfs / q^2 
     real(dp) :: NORM     = 1.0_dp     !! Power spectrum normalization factor so that sigma^2(8 Mpc/h) = 1
     integer  :: ps_model = PS_EH98_ZB !! Power spectrum model to use
+
+    !! Error flags
+    integer, parameter :: ERR_INVALID_VALUE_Z  = 10 !! invalid value for redshift
+    integer, parameter :: ERR_INVALID_VALUE_K  = 40 !! invalid value for wavenumber
 
     public :: tf_eisenstein98_calculate_params, tf_eisenstein98
     public :: tf_eisenstein98_with_bao, tf_eisenstein98_with_neutrino, tf_eisenstein98_zero_baryon
@@ -185,11 +188,10 @@ contains
         real(dp) :: gamma_eff, dplus, q, t1, t2, t3, dt2, dt3
         integer  :: stat2 = 0
 
-        !! check if k is negative
-        if ( k <= 0. ) then
-            if ( present(stat) ) stat = 1
-            return
-        end if
+        if ( z <= -1. ) stat2 = ERR_INVALID_VALUE_Z
+        if ( k <=  0. ) stat2 = ERR_INVALID_VALUE_K
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
 
         !! eqn. 30  
         gamma_eff = Omh2 * ( alpha_g + ( 1 - alpha_g ) / ( 1 + ( 0.43*k*s )**4 ) )
@@ -244,11 +246,10 @@ contains
         real(dp) :: dplus, bk, B, q, q_eff, q_nu, t1, t2, t3, dt2, dt3, dbk, dzk, dlndzk
         integer  :: stat2 = 0
 
-        !! check if k is negative
-        if ( k <= 0. ) then
-            if ( present(stat) ) stat = 1
-            return
-        end if
+        if ( z <= -1. ) stat2 = ERR_INVALID_VALUE_Z
+        if ( k <=  0. ) stat2 = ERR_INVALID_VALUE_K
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
         
         q = k*theta**2 / Omh2 !! eqn. 5
         
@@ -334,12 +335,10 @@ contains
         real(dp) :: q, t0b, t0ab, dt0b, dt0ab, t1, t2, t3, t4, dt2, dt3, dt4, f, df, st
         integer  :: stat2 = 0
 
-
-        !! check if k is negative
-        if ( k <= 0. ) then
-            if ( present(stat) ) stat = 1
-            return
-        end if
+        if ( z <= -1. ) stat2 = ERR_INVALID_VALUE_Z
+        if ( k <=  0. ) stat2 = ERR_INVALID_VALUE_K
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
 
         !! eqn. 10
         q = k/Omh2 * theta**2

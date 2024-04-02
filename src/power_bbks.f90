@@ -3,7 +3,6 @@
 !!
 module power_bbks
     use iso_fortran_env, only: dp => real64
-    ! use constants, only: dp
     use objects, only: cosmology_model
     use growth_calculator, only: calculate_linear_growth
     use variance_calculator, only: calculate_variance
@@ -15,6 +14,10 @@ module power_bbks
     real(dp) :: dplus0        !! Growth factor scaling
     real(dp) :: Gamma_eff     !! Shape parameter
     real(dp) :: NORM = 1.0_dp !! Power spectrum normalization factor so that sigma^2(8 Mpc/h) = 1
+
+    !! Error flags
+    integer, parameter :: ERR_INVALID_VALUE_Z  = 10 !! invalid value for redshift
+    integer, parameter :: ERR_INVALID_VALUE_K  = 40 !! invalid value for wavenumber
 
     public :: tf_sugiyama95_calculate_params, tf_sugiyama95
     public :: get_power_spectrum, get_power_unnorm
@@ -82,11 +85,10 @@ contains
         real(dp) :: dplus, q, t0, t1, t2, t3, t4
         integer  :: stat2 = 0
 
-        !! check if k is negative
-        if ( k <= 0. ) then
-            if ( present(stat) ) stat = 1
-            return
-        end if
+        if ( z <= -1. ) stat2 = ERR_INVALID_VALUE_Z
+        if ( k <=  0. ) stat2 = ERR_INVALID_VALUE_K
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
 
         q = k / Gamma_eff !! dimensionless scale
 
