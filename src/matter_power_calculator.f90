@@ -1,126 +1,62 @@
 !!
-!! Linear matter power spectrum model by BBKS.
+!! Calculation of matter power spectrum and related quatities.
 !!
-module power_bbks
+module matter_power_calculator
     use iso_fortran_env, only: dp => real64
     use objects, only: cosmology_model
-    use growth_calculator, only: calculate_linear_growth
     use variance_calculator, only: calculate_variance
     implicit none
-
+    
     private
 
-    real(dp) :: theta         !! CMB temperaure in 2.7K unit
-    real(dp) :: dplus0        !! Growth factor scaling
-    real(dp) :: Gamma_eff     !! Shape parameter
-    real(dp) :: NORM = 1.0_dp !! Power spectrum normalization factor so that sigma^2(8 Mpc/h) = 1
+    interface
+        !! Interface to transfer function model
+        subroutine tf_calculate(k, z, cm, tk, dlntk, stat) 
+            use iso_fortran_env, only: dp => real64
+            ! use constants, only: dp
+            use objects, only: cosmology_model
+            real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
+            real(dp), intent(in) :: z !! redshift
+            type(cosmology_model), intent(in) :: cm !! cosmology parameters
+            real(dp), intent(out) :: tk
+            real(dp), intent(out), optional :: dlntk
+            integer , intent(out), optional :: stat
+        end subroutine tf_calculate
+    end interface
 
     !! Error flags
     integer, parameter :: ERR_INVALID_VALUE_Z  = 10 !! invalid value for redshift
     integer, parameter :: ERR_INVALID_VALUE_K  = 40 !! invalid value for wavenumber
+    integer, parameter :: ERR_MODEL_NOT_SET_TF = 41 !! transfer function model not set
 
-    public :: tf_sugiyama95_calculate_params, tf_sugiyama95
+    procedure(tf_calculate), pointer :: tf => null() !! linear transfer function model
+    logical  :: has_tf = .false.
+    real(dp) :: NORM   = 1.0_dp  !! Power spectrum normalization factor so that sigma^2(8 Mpc/h) = 1
+
+    public :: set_power_model
     public :: get_power_spectrum, get_power_unnorm
     public :: get_variance, set_normalization, get_normalization
     
 contains
 
     !>
-    !! Calculate the quantities related to BBKS linear transfer function.
+    !! Set mass-function model to use.
     !!
     !! Parameters:
-    !!  cm      : cosmology_model - Cosmology parameters.
-    !!  use_bbks: logical         - Tells if to use original BBKS or corrected version.
-    !!  stat    : integer         - Status flag. Non-zero for failure.
-    !! 
-    subroutine tf_sugiyama95_calculate_params(cm, use_bbks, stat) 
-        type(cosmology_model), intent(inout) :: cm !! cosmology parameters
-        logical, intent(in) , optional :: use_bbks 
-        integer, intent(out), optional :: stat
-        
-        real(dp) :: Om0, Ob0, h      
-        integer  :: stat2 = 0
-        Om0   = cm%Omega_m
-        Ob0   = cm%Omega_b
-        h     = 0.01*cm%H0 !! hubble parameter in 100 km/sec/Mpc unit
-        theta = cm%Tcmb0 / 2.7
-        
-        !! growth factor at z=0
-        call calculate_linear_growth(0.0_dp, cm, dplus0, stat = stat2)
-        if ( present(stat) ) stat = stat2
-        if ( stat2 .ne. 0 ) return
-        
-        Gamma_eff = Om0*h**2 !! shape parameter
-        
-        if ( present(use_bbks) ) then
-            if ( use_bbks ) return !! use original BBKS function
-        end if
-        
-        !! apply baryon correction factor
-        Gamma_eff = Gamma_eff * exp(-Ob0 - sqrt(2*h)*Ob0/Om0)
-        
-    end subroutine tf_sugiyama95_calculate_params
-
-    !>
-    !! Transfer function model given by Bardeen et al (1986), including correction 
-    !! by Sugiyama (1995).  BBKS.
+    !!  mf1 : procedure - Mass function model
+    !!  stat: integer   - Status flag
     !!
-    !! Parameters:
-    !!  k    : real            - Wavenumebr in 1/Mpc.
-    !!  z    : real            - Redshift.
-    !!  cm   : cosmology_model - Cosmology model parameters.
-    !!  tk   : real            - Transfer function.
-    !!  dlntk: real            - 1-st log derivative of transfer function (optional).
-    !!  stat : integer         - Status flag. Non-zero for failure.
-    !!
-    subroutine tf_sugiyama95(k, z, cm, tk, dlntk, stat)
-        real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
-        real(dp), intent(in) :: z !! redshift
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        
-        real(dp), intent(out) :: tk
-        real(dp), intent(out), optional :: dlntk
-        integer , intent(out), optional :: stat
-
-        real(dp) :: dplus, q, t0, t1, t2, t3, t4
-        integer  :: stat2 = 0
-
-        if ( z <= -1. ) stat2 = ERR_INVALID_VALUE_Z
-        if ( k <=  0. ) stat2 = ERR_INVALID_VALUE_K
-        if ( present(stat) ) stat = stat2
-        if ( stat2 .ne. 0 ) return
-
-        q = k / Gamma_eff !! dimensionless scale
-
-        t0 = 2.34*q
-        t1 = 3.89*q
-        t2 = (16.1*q)**2
-        t3 = (5.46*q)**3
-        t4 = (6.71*q)**4
-        
-        !! BBKS transfer function
-        tk = log(1. + t0) / t0 * ( 1. + t1 + t2 + t3 + t4 )**(-0.25)
-        
-        !! linear growth
-        call calculate_linear_growth(z, cm, dplus, stat = stat2)
-        if ( present(stat) ) stat = stat2
-        if ( stat2 .ne. 0 ) return
-        dplus = dplus / dplus0 !! normalization
-        tk = dplus * tk
-
-        if ( present(dlntk) ) then !! 1-st log-derivative w.r.to k
-            t0    = t0 / ( (1. + t0) * log(1. + t0) )
-            t1    = 0.25 * ( t1 + 2*t2 + 3*t3 + 4*t4 ) / (1 + t1 + t2 + t3 + t4) + 1.
-            dlntk = t0 - t1
-        end if
-        
-    end subroutine tf_sugiyama95
-
-    !====================================================================================================!
+    subroutine set_power_model(tf1, stat)
+        procedure(tf_calculate) :: tf1 !! linear transfer function model
+        integer , intent(out)   :: stat
+        tf => tf1
+        has_tf = .true.
+        stat   = 0
+    end subroutine set_power_model
 
     !>
     !! Calculate the linear matter power spectrum. Scale the calculated power spectrum value 
-    !! by `sigma8^2` to get the actual normalised power spectrum.
+    !! by `sigma8^2` to get the actual normalised power spectrum. 
     !!
     !! Parameters:
     !!  k    : real            - Wavenumber in 1/Mpc.
@@ -141,17 +77,22 @@ contains
         integer , intent(out), optional :: stat
 
         real(dp) :: f, ns
-        integer  :: stat2 = 0
+        integer  :: stat2
         ns = cm%ns
 
+        if ( .not. has_tf ) then
+            if ( present(stat) ) stat =  ERR_MODEL_NOT_SET_TF
+            return
+        end if
+
         !! transfer function
-        call tf_sugiyama95(k, z, cm, f, dlntk = dlnpk, stat = stat2)
+        call tf(k, z, cm, f, dlntk = dlnpk, stat = stat2)
         if ( present(stat) ) stat = stat2
         if ( stat2 .ne. 0 ) return
         if ( present(tk) ) tk = f
 
         !! effective index: 1-st log-derivative of p(k) w.r.to k
-        if ( present(dlnpk) ) dlnpk = ns*log(k) + 2*dlnpk
+        if ( present(dlnpk) ) dlnpk = ns + 2*dlnpk
 
         !! power spectrum, normalised so that sigma^2(8 Mpc/h) = 1  
         pk = NORM * k**ns * f**2
@@ -180,8 +121,13 @@ contains
         real(dp) :: ns
         ns = cm%ns
 
+        if ( .not. has_tf ) then
+            if ( present(stat) ) stat =  ERR_MODEL_NOT_SET_TF
+            return
+        end if
+
         !! transfer function
-        call tf_sugiyama95(k, z, cm, pk, stat = stat2)
+        call tf(k, z, cm, pk, stat = stat2)
         if ( present(stat) ) stat = stat2
         if ( stat2 .ne. 0 ) return
 
@@ -257,4 +203,4 @@ contains
         retval = NORM
     end function get_normalization
     
-end module power_bbks
+end module matter_power_calculator

@@ -1,7 +1,7 @@
 !!
 !! Linear matter power spectrum models by Eisenstein & Hu (1998).
 !!
-module power_eh
+module transfer_eh
     use iso_fortran_env, only: dp => real64
     use objects, only: cosmology_model
     use growth_calculator, only: calculate_linear_growth
@@ -12,9 +12,7 @@ module power_eh
 
     real(dp), parameter :: e = 2.718281828459045_dp
 
-    !! 
     !! Power spectrum model ids
-    !!
     integer, parameter :: PS_EH98_ZB  = 31 !! Eisenstein & Hu without BAO
     integer, parameter :: PS_EH98_NU  = 32 !! Eisenstein & Hu including neutrino
     integer, parameter :: PS_EH98_BAO = 33 !! Eisenstein & Hu with BAO
@@ -33,7 +31,6 @@ module power_eh
     real(dp) :: z_eq   !! Redshift at matter-radiation equality epoch
     real(dp) :: z_d    !! Redshift at drag epoch
     real(dp) :: yfs_over_q2   !! yfs / q^2 
-    real(dp) :: NORM     = 1.0_dp     !! Power spectrum normalization factor so that sigma^2(8 Mpc/h) = 1
     integer  :: ps_model = PS_EH98_ZB !! Power spectrum model to use
 
     !! Error flags
@@ -42,8 +39,6 @@ module power_eh
 
     public :: tf_eisenstein98_calculate_params, tf_eisenstein98
     public :: tf_eisenstein98_with_bao, tf_eisenstein98_with_neutrino, tf_eisenstein98_zero_baryon
-    public :: get_power_spectrum, get_power_unnorm
-    public :: get_variance, set_normalization, get_normalization
     
 contains
 
@@ -427,146 +422,5 @@ contains
         end if
                 
     end subroutine tf_eisenstein98
-
-    !====================================================================================================!
     
-    !>
-    !! Calculate the linear matter power spectrum. Scale the calculated power spectrum value 
-    !! by `sigma8^2` to get the actual normalised power spectrum. 
-    !!
-    !! Parameters:
-    !!  k    : real            - Wavenumber in 1/Mpc.
-    !!  z    : real            - Redshift
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!  pk   : real            - Value of calculated power spectrum (unit: Mpc^-3).
-    !!  tk   : real            - Value of calculated transfer function (optional).
-    !!  dlnpk: real            - Value of calculated log-derivative / effective index (optional).
-    !!  stat : integer         - Status flag. Non-zero for failure.
-    !! 
-    subroutine get_power_spectrum(k, z, cm, pk, tk, dlnpk, stat) 
-        real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
-        real(dp), intent(in) :: z !! redshift
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        
-        real(dp), intent(out) :: pk
-        real(dp), intent(out), optional :: tk, dlnpk
-        integer , intent(out), optional :: stat
-
-        real(dp) :: f, ns
-        integer  :: stat2
-        ns = cm%ns
-
-        !! transfer function
-        call tf_eisenstein98(k, z, cm, f, dlntk = dlnpk, stat = stat2)
-        if ( present(stat) ) stat = stat2
-        if ( stat2 .ne. 0 ) return
-        if ( present(tk) ) tk = f
-
-        !! effective index: 1-st log-derivative of p(k) w.r.to k
-        if ( present(dlnpk) ) dlnpk = ns + 2*dlnpk
-
-        !! power spectrum, normalised so that sigma^2(8 Mpc/h) = 1  
-        pk = NORM * k**ns * f**2
-        
-    end subroutine get_power_spectrum
-
-    !>
-    !! Calculate the linear matter power spectrum, without normalization.
-    !!
-    !! Parameters:
-    !!  k    : real            - Wavenumber in 1/Mpc.
-    !!  z    : real            - Redshift
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!  pk   : real            - Value of calculated power spectrum (unit: Mpc^-3).
-    !!  stat : integer         - Status flag. Non-zero for failure.
-    !! 
-    subroutine get_power_unnorm(k, z, cm, pk, stat) 
-        real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
-        real(dp), intent(in) :: z !! redshift
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        
-        real(dp), intent(out) :: pk
-        integer , intent(out), optional :: stat
-
-        integer  :: stat2 = 0
-        real(dp) :: ns
-        ns = cm%ns
-
-        !! transfer function
-        call tf_eisenstein98(k, z, cm, pk, stat = stat2)
-        if ( present(stat) ) stat = stat2
-        if ( stat2 .ne. 0 ) return
-
-        !! power spectrum
-        pk = k**ns * pk**2
-        
-    end subroutine get_power_unnorm
-
-    !>
-    !! Calculate the smoothed linear variance of matter density. Calculated sigma^2 value is in
-    !! units of `sigma8^2`.
-    !!
-    !! Parameters:
-    !!  r    : real            - Smoothing scale in Mpc.
-    !!  z    : real            - Redshift
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!  sigma: real            - Value of calculated variance (unit: Mpc^-3).
-    !!  dlns : real            - Value of calculated 1-st log-derivative (optional).
-    !!  d2lns: real            - Value of calculated 2-nd log-derivative (optional).
-    !!  stat : integer         - Status flag. Non-zero for failure.
-    !! 
-    subroutine get_variance(r, z, cm, sigma, dlns, d2lns, stat) 
-        real(dp), intent(in) :: r !! wavenumber in 1/Mpc unit 
-        real(dp), intent(in) :: z !! redshift
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
-        
-        real(dp), intent(out) :: sigma
-        real(dp), intent(out), optional :: dlns, d2lns
-        integer , intent(out), optional :: stat 
-        integer :: stat2 = 0
-
-        !! calculate variance
-        call calculate_variance(get_power_unnorm, r, z, cm, sigma, dlns = dlns, d2lns = d2lns, stat = stat2)
-        if ( present(stat) ) stat = stat2
-        if ( stat2 .ne. 0 ) return
-
-        !! normalization
-        sigma = NORM * sigma 
-        
-    end subroutine get_variance
-
-    !>
-    !! Calculate sigma-8 normalization.
-    !!
-    !! Parameters:
-    !!  cm  : cosmology_model - Cosmology parameters.
-    !!  stat: integer         - Status flag. Non-zero for failure.
-    !! 
-    subroutine set_normalization(cm, stat)
-        type(cosmology_model), intent(inout) :: cm !! cosmology parameters
-        integer , intent(out), optional :: stat 
-
-        real(dp) :: calculated, r, z
-        integer  :: stat2 = 0
-        r = 8.0 / (0.01 * cm%H0) !! = 8 Mpc/h
-        z = 0._dp
-
-        !! calculating variance at 8 Mpc/h
-        call calculate_variance(get_power_unnorm, r, z, cm, calculated, stat = stat2)
-        if ( present(stat) ) stat = stat2
-        if ( stat2 .ne. 0 ) return
-
-        !! normalization
-        NORM = 1. / calculated
-        
-    end subroutine set_normalization
-
-    !>
-    !! Get the current normalization factor.
-    !!
-    function get_normalization() result(retval)
-        real(dp) :: retval
-        retval = NORM
-    end function get_normalization
-    
-end module power_eh
+end module transfer_eh
