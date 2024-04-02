@@ -31,7 +31,7 @@ contains
     !!  stat    : integer - Status flag. Non-zero for failure.
     !! 
     subroutine tf_sugiyama95_calculate_params(cm, use_bbks, stat) 
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         logical, intent(in) , optional :: use_bbks 
         integer, intent(out), optional :: stat
         
@@ -73,7 +73,7 @@ contains
     subroutine tf_sugiyama95(k, z, cm, tk, dlntk, stat)
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk

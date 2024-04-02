@@ -51,7 +51,7 @@ contains
     !!  stat   : integer - Status flag. Non-zero for failure.
     !! 
     subroutine tf_eisenstein98_calculate_params(cm, version, stat) 
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         integer, intent(in), optional :: version
         integer, intent(out), optional :: stat
 
@@ -174,7 +174,7 @@ contains
     subroutine tf_eisenstein98_zero_baryon(k, z, cm, tk, dlntk, stat)
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
@@ -231,7 +231,7 @@ contains
     subroutine tf_eisenstein98_with_neutrino(k, z, cm, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
@@ -320,7 +320,7 @@ contains
     subroutine tf_eisenstein98_with_bao(k, z, cm, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
@@ -407,7 +407,7 @@ contains
     subroutine tf_eisenstein98(k, z, cm, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk

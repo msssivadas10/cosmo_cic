@@ -78,7 +78,7 @@ contains
     !!
     subroutine calculate_comoving_distance(z, cm, r, dvdz, stat) 
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: r !! distance in Mpc
         real(dp), intent(out), optional :: dvdz !! volume element in Mpc^3
@@ -150,7 +150,7 @@ contains
     !!
     subroutine get_comoving_coordinate(z, cm, r, stat)
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: r !! value of coordinate in Mpc
         integer , intent(out), optional :: stat
@@ -183,7 +183,7 @@ contains
     !!
     subroutine get_luminocity_distance(z, cm, r, stat)
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: r !! distance in Mpc
         integer , intent(out), optional :: stat
@@ -204,7 +204,7 @@ contains
     !!
     subroutine get_angular_diameter_distance(z, cm, r, stat)
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: r !! distance in Mpc
         integer , intent(out), optional :: stat
@@ -227,7 +227,7 @@ contains
     subroutine get_angular_size(x, z, cm, theta, stat)
         real(dp), intent(in)  :: x !! physical size in Mpc
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: theta !! angular size in arcsec
         integer , intent(out), optional :: stat
@@ -251,7 +251,7 @@ contains
     subroutine get_physical_size(x, z, cm, r, stat)
         real(dp), intent(in)  :: x !! angular size in arcsec 
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: r !! physical size in Mpc
         integer , intent(out), optional :: stat

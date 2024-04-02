@@ -17,7 +17,7 @@ module massfunc_bias_calculator
             use objects, only: cosmo_t
             real(dp), intent(in) :: r !! scale in Mpc
             real(dp), intent(in) :: z !! redshift
-            type(cosmo_t), intent(in) :: cm !! cosmology parameters
+            class(cosmo_t), intent(in) :: cm !! cosmology parameters
 
             real(dp), intent(out) :: sigma !! variance 
             real(dp), intent(out), optional :: dlns, d2lns 
@@ -34,7 +34,7 @@ module massfunc_bias_calculator
             real(dp), intent(in) :: s 
             real(dp), intent(in) :: z !! redshift
             real(dp), intent(in) :: Delta !! overdensity w.r.to mean
-            type(cosmo_t), intent(in) :: cm !! cosmology parameters
+            class(cosmo_t), intent(in) :: cm !! cosmology parameters
             real(dp), intent(out) :: retval
             integer , intent(out), optional :: stat
         end subroutine fs_calculate
@@ -125,7 +125,7 @@ contains
         real(dp), intent(in) :: m !! mass in Msun
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity w.r.to mean
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: dndlnm !! halo mass function
         real(dp), intent(out), optional :: fs, s, dlns  
@@ -189,7 +189,7 @@ contains
         real(dp), intent(in) :: m !! mass in Msun
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity w.r.to mean
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: bm   !! halo bias
         real(dp), intent(out), optional :: s
@@ -247,7 +247,7 @@ contains
         real(dp), intent(in) :: m !! mass in Msun
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity w.r.to mean
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: dndlnm !! halo mass function
         real(dp), intent(out) :: bm     !! halo bias

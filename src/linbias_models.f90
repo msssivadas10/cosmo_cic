@@ -32,7 +32,7 @@ contains
         real(dp), intent(in) :: nu
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat
@@ -59,7 +59,7 @@ contains
         real(dp), intent(in) :: nu
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat

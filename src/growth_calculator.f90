@@ -74,7 +74,7 @@ contains
     !!
     subroutine calculate_linear_growth(z, cm, dplus, fplus, stat)
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: dplus           !! growth factor
         real(dp), intent(out), optional :: fplus !! growth rate

@@ -17,7 +17,7 @@ module variance_calculator
             ! use constants, only: dp
             use objects, only: cosmo_t
             real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
-            type(cosmo_t), intent(in) :: cm !! cosmology parameters
+            class(cosmo_t), intent(in) :: cm !! cosmology parameters
             real(dp), intent(out) :: pk
             real(dp), intent(in), optional :: args(:) !! additional arguments
             integer , intent(out), optional :: stat
@@ -127,7 +127,7 @@ contains
     subroutine calculate_variance(ps, r, cm, sigma, dlns, d2lns, args, stat)
         procedure(ps_calculate) :: ps !! power spectrum
         real(dp), intent(in) :: r !! scale in Mpc
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: sigma !! variance 
         real(dp), intent(out), optional :: dlns, d2lns 

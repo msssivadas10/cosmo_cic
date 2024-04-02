@@ -16,7 +16,7 @@ module matter_power_calculator
             use objects, only: cosmo_t
             real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
             real(dp), intent(in) :: z !! redshift
-            type(cosmo_t), intent(in) :: cm !! cosmology parameters
+            class(cosmo_t), intent(in) :: cm !! cosmology parameters
             real(dp), intent(out) :: tk
             real(dp), intent(out), optional :: dlntk
             integer , intent(out), optional :: stat
@@ -72,7 +72,7 @@ contains
     subroutine get_power_spectrum(k, z, cm, pk, tk, dlnpk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: pk
         real(dp), intent(out), optional :: tk, dlnpk
@@ -113,7 +113,7 @@ contains
     !! 
     subroutine ps_calculate(k, cm, pk, args, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: pk
         real(dp), intent(in), optional :: args(:) !! additional arguments
@@ -156,7 +156,7 @@ contains
     subroutine get_variance(r, z, cm, sigma, dlns, d2lns, stat) 
         real(dp), intent(in) :: r !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmo_t), intent(in) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: sigma
         real(dp), intent(out), optional :: dlns, d2lns
@@ -184,7 +184,7 @@ contains
     !!  stat: integer - Status flag. Non-zero for failure.
     !! 
     subroutine set_normalization(cm, stat)
-        type(cosmo_t), intent(inout) :: cm !! cosmology parameters
+        class(cosmo_t), intent(inout) :: cm !! cosmology parameters
         integer , intent(out), optional :: stat 
 
         real(dp) :: calculated, r
