@@ -7,12 +7,8 @@
 # compiler to use
 CC = gfortran		
 
-# program file
-PROG = test.f90 # main program file
-# PROG = test.f90 # for testing
-
 # files to exclude while compiling
-EXCL = test.f90 
+EXCL = ztest_001.f90 ztest_002.f90 
 
 # selecting all source files in src, except main files
 SRCS := $(filter-out ${EXCL},$(wildcard *.f90))
@@ -32,12 +28,7 @@ all: ${OBJS} makelib cleanobjs
 makelib:  
 	@echo "Creating libary..."
 	ar rcs ${LIB} ${OBJS}
-#	$(CC) ${OBJS} $(PROG) src/chebyshev.f90 -o $@
 
-# compite main
-#install:
-#	@echo "Compiling sources"
-#	$(CC) $(PROG) ${LIB}
 
 # clean all .o files
 cleanobjs:

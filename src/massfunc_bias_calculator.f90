@@ -40,6 +40,8 @@ module massfunc_bias_calculator
         end subroutine fs_calculate
     end interface
 
+    public :: fs_calculate, var_calculate
+
     !! Error flags
     integer, parameter :: ERR_INVALID_VALUE_Z  = 10 !! invalid value for redshift
     integer, parameter :: ERR_INVALID_VALUE_M  = 20 !! invalid value for mass

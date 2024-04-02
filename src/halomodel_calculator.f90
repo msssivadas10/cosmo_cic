@@ -6,8 +6,19 @@ module halomodel_calculator
     use objects, only: cosmo_t
     use halo_model, only: halomodel_t
     use numerical, only: generate_gaussleg
-    use massfunc_bias_calculator, only: calculate_massfunc_bias, calculate_massfunc
-    use dist_time_calculator, only: calculate_comoving_distance
+    use dist_time_calculator, only: calculate_comoving_distance, setup_distance_calculator
+    use growth_calculator, only: setup_growth_calculator
+    use matter_power_calculator, only: set_power_model,                     &
+                                    &  set_normalization,                   &
+                                    &  get_variance,                        &
+                                    &  tf_calculate 
+    use variance_calculator, only: setup_variance_calculator
+    use massfunc_bias_calculator, only: setup_massfunc_bias_calculator,     &
+                                    &   set_bias_model,                     &
+                                    &   set_massfunc_model,                 &
+                                    &   calculate_massfunc_bias,            &
+                                    &   calculate_massfunc, calculate_bias, &
+                                    &   fs_calculate
     implicit none
 
     private
@@ -43,12 +54,21 @@ module halomodel_calculator
     integer  :: nq = 0             !! number of points for integration
     real(dp), allocatable :: xq(:) !! nodes for integration
     real(dp), allocatable :: wq(:) !! weights for integration
-    real(dp), allocatable :: mf(:) !! mass function values
-    real(dp), allocatable :: bf(:) !! bias function values
+    real(dp), allocatable :: mftab(:) !! mass function values
+    real(dp), allocatable :: bftab(:) !! bias function values
     real(dp) :: redshift  = -99.0_dp  !! current redshift value
     logical  :: ready = .false.
 
+    !! mass-function and bias calculators
+    public :: calculate_massfunc, calculate_massfunc_bias, calculate_bias
+
     public :: setup_halomodel_calculator, reset_halomodel_calculator
+    public :: calculate_mfbf_table
+    public :: calculate_mf_integral, calculate_mfbf_integral
+    public :: get_halo_density
+    public :: get_average_galaxy_density
+    public :: get_average_galaxy_bias
+    public :: calculate_galaxy_params_zavg
     
 contains
 
@@ -59,26 +79,62 @@ contains
     !!  n   : integer   - Size of the integration rule.
     !!  stat: integer   - Status variable. 0 for success.
     !!
-    subroutine setup_halomodel_calculator(n, stat)
-        integer, intent(in)  :: n
+    subroutine setup_halomodel_calculator(nm, nk, nz, mf, bf, tf, cm, stat, filt)
+        integer, intent(in)  :: nm, nk, nz
         integer, intent(out) ::  stat
+        procedure(fs_calculate)  :: mf, bf
+        procedure(tf_calculate)  :: tf
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
+        character(len=6), intent(in), optional :: filt
 
         !! allocate node array
-        if ( .not. allocated(xq) ) allocate( xq(n) )
+        if ( .not. allocated(xq) ) allocate( xq(nm) )
         
         !! allocate weights array
-        if ( .not. allocated(wq) ) allocate( wq(n) )
+        if ( .not. allocated(wq) ) allocate( wq(nm) )
 
         !! allocate mass-fcuntion array
-        if ( .not. allocated(mf) ) allocate( mf(n) )
+        if ( .not. allocated(mftab) ) allocate( mftab(nm) )
 
         !! allocate bias array
-        if ( .not. allocated(bf) ) allocate( bf(n) )
+        if ( .not. allocated(bftab) ) allocate( bftab(nm) )
         
         !! generating integration rule...
-        nq = n
-        call generate_gaussleg(n, xq, wq, stat = stat)
+        nq = nm
+        call generate_gaussleg(nm, xq, wq, stat = stat)
         if ( stat .ne. 0 ) return !! failed to generate integration rule 
+
+        !! setup power spectrum
+        call set_power_model(tf, stat = stat)
+        if ( stat .ne. 0 ) return
+
+        !! initialize growth factor calculator
+        call setup_growth_calculator(nz, stat = stat)
+        if ( stat .ne. 0 ) return
+
+        !! initialize distance calculator
+        call setup_distance_calculator(nz, stat = stat)
+        if ( stat .ne. 0 ) return
+
+        !! initialize variance calculator
+        call setup_variance_calculator(nk, stat, filt = filt)
+        if ( stat .ne. 0 ) return
+
+        !! normalization
+        call set_normalization(cm, stat = stat)
+        if ( stat .ne. 0 ) return
+        
+        !! setup mass function calculator
+        call setup_massfunc_bias_calculator(get_variance, stat = stat)
+        if ( stat .ne. 0 ) return 
+        
+        !! set mass-function model
+        call set_massfunc_model(mf, stat = stat)
+        if ( stat .ne. 0 ) return 
+        
+        !! set bias model
+        call set_bias_model(bf, stat = stat)
+        if ( stat .ne. 0 ) return 
 
         ready = .true. !! ready for calculations
         
@@ -90,13 +146,14 @@ contains
     subroutine reset_halomodel_calculator()
         deallocate( xq )
         deallocate( wq )
-        deallocate( mf )
-        deallocate( bf )
+        deallocate( mftab )
+        deallocate( bftab )
         nq    = 0
         ready = .false.
         
         !! reset redshift to a negative value
         redshift = -99.0_dp
+
     end subroutine reset_halomodel_calculator
 
     subroutine calculate_mfbf_table(z, Delta, cm, hm, stat)
@@ -125,7 +182,7 @@ contains
         !! calculate mass-function and bias at nodes
         do i = 1, nq
             m  = exp( m_scale*xq(i) + m_shift ) !! mass in Msun
-            call calculate_massfunc_bias(m, z, Delta, cm, mf(i), bf(i), stat = stat2)
+            call calculate_massfunc_bias(m, z, Delta, cm, mftab(i), bftab(i), stat = stat2)
         end do
 
         redshift = z
@@ -160,7 +217,7 @@ contains
             wm = m_scale*wq(i)
 
             !! calculate halo mass-function
-            fm = mf(i)
+            fm = mftab(i)
 
             !! calculate the weight function
             if ( present(func) ) then
@@ -204,7 +261,7 @@ contains
             wm = m_scale*wq(i)
             
             !! calculate halo mass-function
-            fm = mf(i) * bf(i)
+            fm = mftab(i) * bftab(i)
             
             !! calculate the weight function
             if ( present(func) ) then
@@ -339,8 +396,8 @@ contains
 
         !! save the current mass function and bias tables
         do i = 1, nq
-            mf_save(i) = mf(i) 
-            bf_save(i) = bf(i)
+            mf_save(i) = mftab(i) 
+            bf_save(i) = bftab(i)
         end do
         z_save = redshift
 
@@ -389,8 +446,8 @@ contains
 
         !! reset mass function and bias tables to save values
         do i = 1, nq
-            mf(i) = mf_save(i) 
-            bf(i) = bf_save(i)
+            mftab(i) = mf_save(i) 
+            bftab(i) = bf_save(i)
         end do
         redshift = z_save
 

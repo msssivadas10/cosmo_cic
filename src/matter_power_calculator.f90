@@ -22,6 +22,8 @@ module matter_power_calculator
             integer , intent(out), optional :: stat
         end subroutine tf_calculate
     end interface
+
+    public :: tf_calculate
         
     !! Error flags
     integer, parameter :: ERR_INVALID_VALUE_Z  = 10 !! invalid value for redshift
@@ -184,7 +186,7 @@ contains
     !!  stat: integer - Status flag. Non-zero for failure.
     !! 
     subroutine set_normalization(cm, stat)
-        class(cosmo_t), intent(inout) :: cm !! cosmology parameters
+        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         integer , intent(out), optional :: stat 
 
         real(dp) :: calculated, r
