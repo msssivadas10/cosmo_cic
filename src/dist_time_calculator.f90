@@ -5,7 +5,7 @@ module dist_time_calculator
     use iso_fortran_env, only: dp => real64
     use constants, only: PI, SPEED_OF_LIGHT_KMPS, EPS
     use numerical, only: generate_gaussleg
-    use objects, only: cosmology_model
+    use objects, only: cosmo_t
     implicit none
 
     private 
@@ -70,15 +70,15 @@ contains
     !! Calculate comoving distance at redshift z.
     !!
     !! Parameters:
-    !!  z    : real            - Redshift (must be greater than -1).
-    !!  cm   : cosmology_model - Cosmology parameters
-    !!  r    : real            - Comoving distance in Mpc.
-    !!  dvdz : real            - Comoving volume element in Mpc^3.
-    !!  stat : integer         - Status. 1: not setup propery, 2: invalid redshift.
+    !!  z    : real    - Redshift (must be greater than -1).
+    !!  cm   : cosmo_t - Cosmology parameters
+    !!  r    : real    - Comoving distance in Mpc.
+    !!  dvdz : real    - Comoving volume element in Mpc^3.
+    !!  stat : integer - Status. 1: not setup propery, 2: invalid redshift.
     !!
     subroutine calculate_comoving_distance(z, cm, r, dvdz, stat) 
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: r !! distance in Mpc
         real(dp), intent(out), optional :: dvdz !! volume element in Mpc^3
@@ -143,14 +143,14 @@ contains
     !! Calculate comoving coordinate at redshift z.
     !!
     !! Parameters:
-    !!  z   : real            - Redshift (must be greater than -1).
-    !!  cm  : cosmology_model - Cosmology parameters
-    !!  r   : real            - Comoving coordinate in Mpc.
-    !!  stat: integer         - Status. 1: not setup propery, 2: invalid redshift.
+    !!  z   : real    - Redshift (must be greater than -1).
+    !!  cm  : cosmo_t - Cosmology parameters
+    !!  r   : real    - Comoving coordinate in Mpc.
+    !!  stat: integer - Status. 1: not setup propery, 2: invalid redshift.
     !!
     subroutine get_comoving_coordinate(z, cm, r, stat)
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: r !! value of coordinate in Mpc
         integer , intent(out), optional :: stat
@@ -176,14 +176,14 @@ contains
     !! Calculate luminocity distance at redshift z.
     !!
     !! Parameters:
-    !!  z   : real            - Redshift (must be greater than -1).
-    !!  cm  : cosmology_model - Cosmology parameters
-    !!  r   : real            -  Luminocity distance in Mpc.
-    !!  stat: integer         - Status. 1: not setup propery, 2: invalid redshift.
+    !!  z   : real    - Redshift (must be greater than -1).
+    !!  cm  : cosmo_t - Cosmology parameters
+    !!  r   : real    -  Luminocity distance in Mpc.
+    !!  stat: integer - Status. 1: not setup propery, 2: invalid redshift.
     !!
     subroutine get_luminocity_distance(z, cm, r, stat)
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: r !! distance in Mpc
         integer , intent(out), optional :: stat
@@ -197,14 +197,14 @@ contains
     !! Calculate angular diameter distance at redshift z.
     !!
     !! Parameters:
-    !!  z   : real            - Redshift (must be greater than -1).
-    !!  cm  : cosmology_model - Cosmology parameters
-    !!  r   : real            -  Angular diameter distance in Mpc.
-    !!  stat: integer         - Status. 1: not setup propery, 2: invalid redshift.
+    !!  z   : real    - Redshift (must be greater than -1).
+    !!  cm  : cosmo_t - Cosmology parameters
+    !!  r   : real    -  Angular diameter distance in Mpc.
+    !!  stat: integer - Status. 1: not setup propery, 2: invalid redshift.
     !!
     subroutine get_angular_diameter_distance(z, cm, r, stat)
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: r !! distance in Mpc
         integer , intent(out), optional :: stat
@@ -218,16 +218,16 @@ contains
     !! Calculate angular size corresponding to a physical size x, redshift z.
     !!
     !! Parameters:
-    !!  x    : real            - Physical size in Mpc.
-    !!  z    : real            - Redshift (must be greater than -1).
-    !!  cm   : cosmology_model - Cosmology parameters
-    !!  theta: real            - Calculated angular size in arcsec.
-    !!  stat : integer         - Status. 1: not setup propery, 2: invalid redshift.
+    !!  x    : real    - Physical size in Mpc.
+    !!  z    : real    - Redshift (must be greater than -1).
+    !!  cm   : cosmo_t - Cosmology parameters
+    !!  theta: real    - Calculated angular size in arcsec.
+    !!  stat : integer - Status. 1: not setup propery, 2: invalid redshift.
     !!
     subroutine get_angular_size(x, z, cm, theta, stat)
         real(dp), intent(in)  :: x !! physical size in Mpc
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: theta !! angular size in arcsec
         integer , intent(out), optional :: stat
@@ -242,16 +242,16 @@ contains
     !! Calculate physical size corresponding to a angular size x, redshift z.
     !!
     !! Parameters:
-    !!  x   : real            - Angular size in arcsec.
-    !!  z   : real            - Redshift (must be greater than -1).
-    !!  cm  : cosmology_model - Cosmology parameters
-    !!  r   : real            - Physical size in Mpc.
-    !!  stat: integer         - Status. 1: not setup propery, 2: invalid redshift.
+    !!  x   : real    - Angular size in arcsec.
+    !!  z   : real    - Redshift (must be greater than -1).
+    !!  cm  : cosmo_t - Cosmology parameters
+    !!  r   : real    - Physical size in Mpc.
+    !!  stat: integer - Status. 1: not setup propery, 2: invalid redshift.
     !!
     subroutine get_physical_size(x, z, cm, r, stat)
         real(dp), intent(in)  :: x !! angular size in arcsec 
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: r !! physical size in Mpc
         integer , intent(out), optional :: stat

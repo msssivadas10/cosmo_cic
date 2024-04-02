@@ -4,7 +4,7 @@
 module massfunc_bias_calculator
     use iso_fortran_env, only: dp => real64
     use constants, only: PI, RHO_CRIT0_ASTRO
-    use objects, only: cosmology_model
+    use objects, only: cosmo_t
     implicit none
 
     private
@@ -14,10 +14,10 @@ module massfunc_bias_calculator
         subroutine var_calculate(r, z, cm, sigma, dlns, d2lns, stat)
             use iso_fortran_env, only: dp => real64
             ! use constants, only: dp
-            use objects, only: cosmology_model
+            use objects, only: cosmo_t
             real(dp), intent(in) :: r !! scale in Mpc
             real(dp), intent(in) :: z !! redshift
-            type(cosmology_model), intent(in) :: cm !! cosmology parameters
+            type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
             real(dp), intent(out) :: sigma !! variance 
             real(dp), intent(out), optional :: dlns, d2lns 
@@ -30,11 +30,11 @@ module massfunc_bias_calculator
         subroutine fs_calculate(s, z, Delta, cm, retval, stat)
             use iso_fortran_env, only: dp => real64
             ! use constants, only: dp
-            use objects, only: cosmology_model
+            use objects, only: cosmo_t
             real(dp), intent(in) :: s 
             real(dp), intent(in) :: z !! redshift
             real(dp), intent(in) :: Delta !! overdensity w.r.to mean
-            type(cosmology_model), intent(in) :: cm !! cosmology parameters
+            type(cosmo_t), intent(in) :: cm !! cosmology parameters
             real(dp), intent(out) :: retval
             integer , intent(out), optional :: stat
         end subroutine fs_calculate
@@ -111,21 +111,21 @@ contains
     !! Calculate the halo mass-function for a given mass and redshift.
     !!
     !! Parameters:
-    !!  m     : real            - Mass in Msun
-    !!  z     : real            - Redshift
-    !!  Delta : real            - Overdensity w.r.to mean background density.
-    !!  cm    : cosmology_model - Cosmology parameters
-    !!  dndlnm: real            - Calculated mass function in 1/Mpc^3
-    !!  fs    : real            - Calculated mass function, f(sigma)
-    !!  s     : real            - Calculated variance, sigma
-    !!  dlns  : real            - Calculated log derivative of sigma w.r.to mass
-    !!  stat  : integer         - Status flag
+    !!  m     : real    - Mass in Msun
+    !!  z     : real    - Redshift
+    !!  Delta : real    - Overdensity w.r.to mean background density.
+    !!  cm    : cosmo_t - Cosmology parameters
+    !!  dndlnm: real    - Calculated mass function in 1/Mpc^3
+    !!  fs    : real    - Calculated mass function, f(sigma)
+    !!  s     : real    - Calculated variance, sigma
+    !!  dlns  : real    - Calculated log derivative of sigma w.r.to mass
+    !!  stat  : integer - Status flag
     !! 
     subroutine calculate_massfunc(m, z, Delta, cm, dndlnm, fs, s, dlns, stat)
         real(dp), intent(in) :: m !! mass in Msun
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity w.r.to mean
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: dndlnm !! halo mass function
         real(dp), intent(out), optional :: fs, s, dlns  
@@ -177,19 +177,19 @@ contains
     !! Calculate the halo bias function for a given mass and redshift.
     !!
     !! Parameters:
-    !!  m     : real            - Mass in Msun
-    !!  z     : real            - Redshift
-    !!  Delta : real            - Overdensity w.r.to mean background density.
-    !!  cm    : cosmology_model - Cosmology parameters
-    !!  bm    : real            - Calculated bias function
-    !!  s     : real            - Calculated variance, sigma
-    !!  stat  : integer         - Status flag
+    !!  m     : real    - Mass in Msun
+    !!  z     : real    - Redshift
+    !!  Delta : real    - Overdensity w.r.to mean background density.
+    !!  cm    : cosmo_t - Cosmology parameters
+    !!  bm    : real    - Calculated bias function
+    !!  s     : real    - Calculated variance, sigma
+    !!  stat  : integer - Status flag
     !! 
     subroutine calculate_bias(m, z, Delta, cm, bm, s, stat)
         real(dp), intent(in) :: m !! mass in Msun
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity w.r.to mean
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: bm   !! halo bias
         real(dp), intent(out), optional :: s
@@ -232,22 +232,22 @@ contains
     !! Calculate the both halo mass-function and bias for a given mass and redshift.
     !!
     !! Parameters:
-    !!  m     : real            - Mass in Msun
-    !!  z     : real            - Redshift
-    !!  Delta : real            - Overdensity w.r.to mean background density.
-    !!  cm    : cosmology_model - Cosmology parameters
-    !!  dndlnm: real            - Calculated mass function in 1/Mpc^3
-    !!  fs    : real            - Calculated mass function, f(sigma)
-    !!  bm    : real            - Calculated bias function
-    !!  s     : real            - Calculated variance, sigma
-    !!  dlns  : real            - Calculated log derivative of sigma w.r.to mass
-    !!  stat  : integer         - Status flag
+    !!  m     : real    - Mass in Msun
+    !!  z     : real    - Redshift
+    !!  Delta : real    - Overdensity w.r.to mean background density.
+    !!  cm    : cosmo_t - Cosmology parameters
+    !!  dndlnm: real    - Calculated mass function in 1/Mpc^3
+    !!  fs    : real    - Calculated mass function, f(sigma)
+    !!  bm    : real    - Calculated bias function
+    !!  s     : real    - Calculated variance, sigma
+    !!  dlns  : real    - Calculated log derivative of sigma w.r.to mass
+    !!  stat  : integer - Status flag
     !! 
     subroutine calculate_massfunc_bias(m, z, Delta, cm, dndlnm, bm, fs, s, dlns, stat)
         real(dp), intent(in) :: m !! mass in Msun
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity w.r.to mean
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: dndlnm !! halo mass function
         real(dp), intent(out) :: bm     !! halo bias

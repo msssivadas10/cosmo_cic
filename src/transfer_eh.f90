@@ -3,7 +3,7 @@
 !!
 module transfer_eh
     use iso_fortran_env, only: dp => real64
-    use objects, only: cosmology_model
+    use objects, only: cosmo_t
     use growth_calculator, only: calculate_linear_growth
     use variance_calculator, only: calculate_variance
     implicit none
@@ -46,12 +46,12 @@ contains
     !! Calculate the quantities related linear transfer functions by Eisenstein & Hu (1998).
     !!
     !! Parameters:
-    !!  cm     : cosmology_model - Cosmology parameters.
-    !!  version: integer         - Which version to use: BAO (1), neutrino (2) or zero baryon.  
-    !!  stat   : integer         - Status flag. Non-zero for failure.
+    !!  cm     : cosmo_t - Cosmology parameters.
+    !!  version: integer - Which version to use: BAO (1), neutrino (2) or zero baryon.  
+    !!  stat   : integer - Status flag. Non-zero for failure.
     !! 
     subroutine tf_eisenstein98_calculate_params(cm, version, stat) 
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         integer, intent(in), optional :: version
         integer, intent(out), optional :: stat
 
@@ -164,17 +164,17 @@ contains
     !! Calculate the linear transfer function by Eisenstein & Hu (1998), not including BAO.
     !!
     !! Parameters:
-    !!  k    : real            - Wavenumber in 1/Mpc.
-    !!  z    : real            - Redshift
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!  tk   : real            - Value of calculated transfer function.
-    !!  dlntk: real            - Value of calculated log-derivative
-    !!  stat : integer         - Status flag. Non-zero for failure.
+    !!  k    : real    - Wavenumber in 1/Mpc.
+    !!  z    : real    - Redshift
+    !!  cm   : cosmo_t - Cosmology parameters.
+    !!  tk   : real    - Value of calculated transfer function.
+    !!  dlntk: real    - Value of calculated log-derivative
+    !!  stat : integer - Status flag. Non-zero for failure.
     !! 
     subroutine tf_eisenstein98_zero_baryon(k, z, cm, tk, dlntk, stat)
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
@@ -221,17 +221,17 @@ contains
     !! neutrinos.
     !!
     !! Parameters:
-    !!  k    : real            - Wavenumber in 1/Mpc.
-    !!  z    : real            - Redshift
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!  tk   : real            - Value of calculated transfer function.
-    !!  dlntk: real            - Value of calculated log-derivative
-    !!  stat : integer         - Status flag. Non-zero for failure.
+    !!  k    : real    - Wavenumber in 1/Mpc.
+    !!  z    : real    - Redshift
+    !!  cm   : cosmo_t - Cosmology parameters.
+    !!  tk   : real    - Value of calculated transfer function.
+    !!  dlntk: real    - Value of calculated log-derivative
+    !!  stat : integer - Status flag. Non-zero for failure.
     !! 
     subroutine tf_eisenstein98_with_neutrino(k, z, cm, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
@@ -310,17 +310,17 @@ contains
     !! NOTE: Derivative calculations and equations not verified.
     !!
     !! Parameters:
-    !!  k    : real            - Wavenumber in 1/Mpc.
-    !!  z    : real            - Redshift
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!  tk   : real            - Value of calculated transfer function.
-    !!  dlntk: real            - Value of calculated log-derivative
-    !!  stat : integer         - Status flag. Non-zero for failure.
+    !!  k    : real    - Wavenumber in 1/Mpc.
+    !!  z    : real    - Redshift
+    !!  cm   : cosmo_t - Cosmology parameters.
+    !!  tk   : real    - Value of calculated transfer function.
+    !!  dlntk: real    - Value of calculated log-derivative
+    !!  stat : integer - Status flag. Non-zero for failure.
     !! 
     subroutine tf_eisenstein98_with_bao(k, z, cm, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
@@ -397,17 +397,17 @@ contains
     !! NOTE: Derivative calculations and equations not verified.
     !!
     !! Parameters:
-    !!  k    : real            - Wavenumber in 1/Mpc.
-    !!  z    : real            - Redshift
-    !!  cm   : cosmology_model - Cosmology parameters.
-    !!  tk   : real            - Value of calculated transfer function.
-    !!  dlntk: real            - Value of calculated log-derivative
-    !!  stat : integer         - Status flag. Non-zero for failure.
+    !!  k    : real    - Wavenumber in 1/Mpc.
+    !!  z    : real    - Redshift
+    !!  cm   : cosmo_t - Cosmology parameters.
+    !!  tk   : real    - Value of calculated transfer function.
+    !!  dlntk: real    - Value of calculated log-derivative
+    !!  stat : integer - Status flag. Non-zero for failure.
     !! 
     subroutine tf_eisenstein98(k, z, cm, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk

@@ -1,5 +1,5 @@
 !!
-!! Definitions of some types holding cosmology parameters.
+!! Definitions of types holding cosmology parameters.
 !!
 module objects
     use iso_fortran_env, only: dp => real64
@@ -11,7 +11,7 @@ module objects
     !>
     !! Cosmology model parameters
     !!
-    type, public :: cosmology_model
+    type, public :: cosmo_t
         real(dp) :: H0 !! Hubble parameter
 
         real(dp) :: Omega_m  !! Total matter density parameter
@@ -54,7 +54,7 @@ module objects
 contains
 
     subroutine initialize_cosmology(self, stat)
-        class(cosmology_model), intent(inout) :: self
+        class(cosmo_t), intent(inout) :: self
         integer, intent(out) :: stat
 
         stat = 1 !! 0: success and 1: failure
@@ -105,7 +105,7 @@ contains
     !!  dlnf: real - Calculated value of 1-st log-derivative
     !!
     subroutine calculate_hubble_func(self, z, f, dlnf)
-        class(cosmology_model), intent(in) :: self
+        class(cosmo_t), intent(in) :: self
         real(dp), intent(in) :: z
         real(dp), intent(out) :: f
         real(dp), intent(out), optional :: dlnf
@@ -162,8 +162,17 @@ contains
 
     end subroutine calculate_hubble_func
 
+    !>
+    !! Calculate the collapse density at redshift z
+    !!
+    !! Parameters:
+    !!  z: real - Redshift
+    !!
+    !! Returns:
+    !!  delta_sc - Collase density value (approx. 1.686)
+    !!
     function get_collapse_density(self, z) result(retval)
-        class(cosmology_model), intent(in) :: self
+        class(cosmo_t), intent(in) :: self
         real(dp), intent(in) :: z
 
         real(dp) :: retval

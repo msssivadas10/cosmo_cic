@@ -1,6 +1,6 @@
 program main
     use iso_fortran_env, only: dp => real64
-    use objects, only: cosmology_model
+    use objects, only: cosmo_t
     use dist_time_calculator, only: setup_distance_calculator, calculate_comoving_distance
     use growth_calculator, only: setup_growth_calculator, calculate_linear_growth
     use transfer_eh, only: tf_eisenstein98_calculate_params, tf_eisenstein98
@@ -18,16 +18,8 @@ program main
 
     implicit none
 
-    type(cosmology_model) :: cm
+    type(cosmo_t) :: cm
     integer :: stat
-
-    !! cosmology model
-    cm = cosmology_model(H0=70.0_dp, Omega_m=0.3_dp, Omega_b=0.05_dp, ns=1.0_dp, sigma8=0.8_dp)
-    call cm%initialize_cosmology(stat) !! initialising the module
-    ! write (*,'(a,f8.4)') 'H0  : ', cm%H0
-    ! write (*,'(a,f8.4)') 'Om0 : ', cm%Omega_m
-    ! write (*,'(a,f8.4)') 'Ob0 : ', cm%Omega_b
-    ! write (*,'(a,f8.4)') 'Ode0: ', cm%Omega_de
 
     call initialize()
     call generate_redshift_data()
@@ -37,6 +29,19 @@ program main
     contains
 
         subroutine initialize()
+
+            !! create cosmology model
+            cm = cosmo_t(H0=70.0_dp, Omega_m=0.3_dp, Omega_b=0.05_dp, ns=1.0_dp, sigma8=0.8_dp)
+            call cm%initialize_cosmology(stat) !! initialising the module
+            if ( stat .ne. 0 ) then
+                write (*,*) 'error: setup cosmology'
+                return
+            end if
+            ! write (*,'(a,f8.4)') 'H0  : ', cm%H0
+            ! write (*,'(a,f8.4)') 'Om0 : ', cm%Omega_m
+            ! write (*,'(a,f8.4)') 'Ob0 : ', cm%Omega_b
+            ! write (*,'(a,f8.4)') 'Ode0: ', cm%Omega_de
+
             !! initialize distance calculator
             call setup_distance_calculator(128, stat)
             if ( stat .ne. 0 ) then

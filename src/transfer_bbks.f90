@@ -3,7 +3,7 @@
 !!
 module transfer_bbks
     use iso_fortran_env, only: dp => real64
-    use objects, only: cosmology_model
+    use objects, only: cosmo_t
     use growth_calculator, only: calculate_linear_growth
     use variance_calculator, only: calculate_variance
     implicit none
@@ -26,12 +26,12 @@ contains
     !! Calculate the quantities related to BBKS linear transfer function.
     !!
     !! Parameters:
-    !!  cm      : cosmology_model - Cosmology parameters.
-    !!  use_bbks: logical         - Tells if to use original BBKS or corrected version.
-    !!  stat    : integer         - Status flag. Non-zero for failure.
+    !!  cm      : cosmo_t - Cosmology parameters.
+    !!  use_bbks: logical - Tells if to use original BBKS or corrected version.
+    !!  stat    : integer - Status flag. Non-zero for failure.
     !! 
     subroutine tf_sugiyama95_calculate_params(cm, use_bbks, stat) 
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         logical, intent(in) , optional :: use_bbks 
         integer, intent(out), optional :: stat
         
@@ -63,17 +63,17 @@ contains
     !! by Sugiyama (1995).  BBKS.
     !!
     !! Parameters:
-    !!  k    : real            - Wavenumebr in 1/Mpc.
-    !!  z    : real            - Redshift.
-    !!  cm   : cosmology_model - Cosmology model parameters.
-    !!  tk   : real            - Transfer function.
-    !!  dlntk: real            - 1-st log derivative of transfer function (optional).
-    !!  stat : integer         - Status flag. Non-zero for failure.
+    !!  k    : real    - Wavenumebr in 1/Mpc.
+    !!  z    : real    - Redshift.
+    !!  cm   : cosmo_t - Cosmology model parameters.
+    !!  tk   : real    - Transfer function.
+    !!  dlntk: real    - 1-st log derivative of transfer function (optional).
+    !!  stat : integer - Status flag. Non-zero for failure.
     !!
     subroutine tf_sugiyama95(k, z, cm, tk, dlntk, stat)
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk

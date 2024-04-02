@@ -5,7 +5,7 @@ module growth_calculator
     use iso_fortran_env, only: dp => real64
     use constants, only: PI, SPEED_OF_LIGHT_KMPS, EPS
     use numerical, only: generate_gaussleg
-    use objects, only: cosmology_model
+    use objects, only: cosmo_t
     implicit none
 
     private 
@@ -66,15 +66,15 @@ contains
     !! Evaluate the integral expression related to linear growth_calculator calculation.
     !!
     !! Parameters:
-    !!  z    : real            - Redshift (must be greater than -1).
-    !!  cm   : cosmology_model - Cosmology parameters
-    !!  dplus: real            - Calculated value of growth factor.
-    !!  fplus: real            - Calculated value of growth rate (optional).
-    !!  stat : integer         - Status. 1: not setup propery, 2: invalid redshift.
+    !!  z    : real    - Redshift (must be greater than -1).
+    !!  cm   : cosmo_t - Cosmology parameters
+    !!  dplus: real    - Calculated value of growth factor.
+    !!  fplus: real    - Calculated value of growth rate (optional).
+    !!  stat : integer - Status. 1: not setup propery, 2: invalid redshift.
     !!
     subroutine calculate_linear_growth(z, cm, dplus, fplus, stat)
         real(dp), intent(in)  :: z !! redshift 
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: dplus           !! growth factor
         real(dp), intent(out), optional :: fplus !! growth rate

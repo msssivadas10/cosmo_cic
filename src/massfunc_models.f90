@@ -4,7 +4,7 @@
 module massfunc_models
     use iso_fortran_env, only: dp => real64
     use constants, only: PI
-    use objects, only: cosmology_model
+    use objects, only: cosmo_t
     implicit none
 
     private
@@ -28,17 +28,17 @@ contains
     !!
     !! Parameters:
     !!  s     : real            
-    !!  z     : real            - Redshift
-    !!  Delta : real            - Overdensity relative to mean density.
-    !!  cm    : cosmology_model - Cosmology parameters.
-    !!  retval: real            - Calculated value.
-    !!  stat  : integer         - Status flag.
+    !!  z     : real    - Redshift
+    !!  Delta : real    - Overdensity relative to mean density.
+    !!  cm    : cosmo_t - Cosmology parameters.
+    !!  retval: real    - Calculated value.
+    !!  stat  : integer - Status flag.
     !!
     subroutine mf_pres74(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat
@@ -58,7 +58,7 @@ contains
     !!  s     : real            
     !!  z     : real            - Redshift
     !!  Delta : real            - Overdensity relative to mean density.
-    !!  cm    : cosmology_model - Cosmology parameters.
+    !!  cm    : cosmo_t - Cosmology parameters.
     !!  retval: real            - Calculated value.
     !!  stat  : integer         - Status flag.
     !!
@@ -66,7 +66,7 @@ contains
         real(dp), intent(in) :: s 
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat
@@ -90,17 +90,17 @@ contains
     !!
     !! Parameters:
     !!  s     : real            
-    !!  z     : real            - Redshift
-    !!  Delta : real            - Overdensity relative to mean density.
-    !!  cm    : cosmology_model - Cosmology parameters.
-    !!  retval: real            - Calculated value.
-    !!  stat  : integer         - Status flag.
+    !!  z     : real    - Redshift
+    !!  Delta : real    - Overdensity relative to mean density.
+    !!  cm    : cosmo_t - Cosmology parameters.
+    !!  retval: real    - Calculated value.
+    !!  stat  : integer - Status flag.
     !!
     subroutine mf_jenkins01(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat
@@ -117,17 +117,17 @@ contains
     !!
     !! Parameters:
     !!  s     : real            
-    !!  z     : real            - Redshift
-    !!  Delta : real            - Overdensity relative to mean density.
-    !!  cm    : cosmology_model - Cosmology parameters.
-    !!  retval: real            - Calculated value.
-    !!  stat  : integer         - Status flag.
+    !!  z     : real    - Redshift
+    !!  Delta : real    - Overdensity relative to mean density.
+    !!  cm    : cosmo_t - Cosmology parameters.
+    !!  retval: real    - Calculated value.
+    !!  stat  : integer - Status flag.
     !!
     subroutine mf_reed03(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat
@@ -147,17 +147,17 @@ contains
     !!
     !! Parameters:
     !!  s     : real            
-    !!  z     : real            - Redshift
-    !!  Delta : real            - Overdensity relative to mean density.
-    !!  cm    : cosmology_model - Cosmology parameters.
-    !!  retval: real            - Calculated value.
-    !!  stat  : integer         - Status flag.
+    !!  z     : real    - Redshift
+    !!  Delta : real    - Overdensity relative to mean density.
+    !!  cm    : cosmo_t - Cosmology parameters.
+    !!  retval: real    - Calculated value.
+    !!  stat  : integer - Status flag.
     !!
     subroutine mf_warren06(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat
@@ -180,17 +180,17 @@ contains
     !!
     !! Parameters:
     !!  s     : real            
-    !!  z     : real            - Redshift
-    !!  Delta : real            - Overdensity relative to mean density.
-    !!  cm    : cosmology_model - Cosmology parameters.
-    !!  retval: real            - Calculated value.
-    !!  stat  : integer         - Status flag.
+    !!  z     : real    - Redshift
+    !!  Delta : real    - Overdensity relative to mean density.
+    !!  cm    : cosmo_t - Cosmology parameters.
+    !!  retval: real    - Calculated value.
+    !!  stat  : integer - Status flag.
     !!
     subroutine mf_crocce01(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat
@@ -216,17 +216,17 @@ contains
     !!
     !! Parameters:
     !!  s     : real            
-    !!  z     : real            - Redshift
-    !!  Delta : real            - Overdensity relative to mean density.
-    !!  cm    : cosmology_model - Cosmology parameters.
-    !!  retval: real            - Calculated value.
-    !!  stat  : integer         - Status flag.
+    !!  z     : real    - Redshift
+    !!  Delta : real    - Overdensity relative to mean density.
+    !!  cm    : cosmo_t - Cosmology parameters.
+    !!  retval: real    - Calculated value.
+    !!  stat  : integer - Status flag.
     !!
     subroutine mf_courtin10(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat
@@ -250,17 +250,17 @@ contains
     !!
     !! Parameters:
     !!  s     : real            
-    !!  z     : real            - Redshift
-    !!  Delta : real            - Overdensity relative to mean density.
-    !!  cm    : cosmology_model - Cosmology parameters.
-    !!  retval: real            - Calculated value.
-    !!  stat  : integer         - Status flag.
+    !!  z     : real    - Redshift
+    !!  Delta : real    - Overdensity relative to mean density.
+    !!  cm    : cosmo_t - Cosmology parameters.
+    !!  retval: real    - Calculated value.
+    !!  stat  : integer - Status flag.
     !!
     subroutine mf_tinker08(s, z, Delta, cm, retval, stat)
         real(dp), intent(in) :: s 
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat

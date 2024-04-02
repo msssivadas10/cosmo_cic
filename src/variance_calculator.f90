@@ -5,7 +5,7 @@ module variance_calculator
     use iso_fortran_env, only: dp => real64
     use constants, only: PI
     use numerical, only: generate_gaussleg
-    use objects, only: cosmology_model
+    use objects, only: cosmo_t
     implicit none
 
     private
@@ -15,10 +15,10 @@ module variance_calculator
         subroutine ps_calculate(k, z, cm, pk, stat)
             use iso_fortran_env, only: dp => real64
             ! use constants, only: dp
-            use objects, only: cosmology_model
+            use objects, only: cosmo_t
             real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
             real(dp), intent(in) :: z !! redshift
-            type(cosmology_model), intent(in) :: cm !! cosmology parameters
+            type(cosmo_t), intent(in) :: cm !! cosmology parameters
             real(dp), intent(out) :: pk
             integer , intent(out), optional :: stat
         end subroutine ps_calculate
@@ -117,19 +117,19 @@ contains
     !! Calculate the matter variance by smoothing over a scale r Mpc.
     !!
     !! Parameters:
-    !!  tf     : procedure       - Transfer function
-    !!  r      : real            - Smoothing scale in Mpc
-    !!  z      : real            - Redshift
-    !!  cm     : cosmology_model - Cosmology prameters
-    !!  sigma  : real            - Calculated variance
-    !!  dlns   : real            - Calculatetd 1-st log-derivative (optional)
-    !!  d2lns  : real            - Calculatetd 2-nd log-derivative (optional)
+    !!  tf     : procedure - Transfer function
+    !!  r      : real      - Smoothing scale in Mpc
+    !!  z      : real      - Redshift
+    !!  cm     : cosmo_t   - Cosmology prameters
+    !!  sigma  : real      - Calculated variance
+    !!  dlns   : real      - Calculatetd 1-st log-derivative (optional)
+    !!  d2lns  : real      - Calculatetd 2-nd log-derivative (optional)
     !!
     subroutine calculate_variance(ps, r, z, cm, sigma, dlns, d2lns, stat)
         procedure(ps_calculate) :: ps !! power spectrum
         real(dp), intent(in) :: r !! scale in Mpc
         real(dp), intent(in) :: z !! redshift
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: sigma !! variance 
         real(dp), intent(out), optional :: dlns, d2lns 

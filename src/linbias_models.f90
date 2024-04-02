@@ -4,7 +4,7 @@
 module linbias_models
     use iso_fortran_env, only: dp => real64
     use constants, only: PI, DELTA_SC
-    use objects, only: cosmology_model
+    use objects, only: cosmo_t
     implicit none
 
     private
@@ -24,7 +24,7 @@ contains
     !!  s     : real            
     !!  z     : real            - Redshift
     !!  Delta : real            - Overdensity relative to mean density.
-    !!  cm    : cosmology_model - Cosmology parameters.
+    !!  cm    : cosmo_t - Cosmology parameters.
     !!  retval: real            - Calculated function value 
     !!  stat  : integer         - Status flag (non-zero for errors)
     !!
@@ -32,7 +32,7 @@ contains
         real(dp), intent(in) :: nu
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat
@@ -51,7 +51,7 @@ contains
     !!  s     : real            
     !!  z     : real            - Redshift
     !!  Delta : real            - Overdensity relative to mean density.
-    !!  cm    : cosmology_model - Cosmology parameters.
+    !!  cm    : cosmo_t - Cosmology parameters.
     !!  retval: real            - Calculated function value 
     !!  stat  : integer         - Status flag (non-zero for errors)
     !!
@@ -59,7 +59,7 @@ contains
         real(dp), intent(in) :: nu
         real(dp), intent(in) :: z !! redshift
         real(dp), intent(in) :: Delta !! overdensity (not used)
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
+        type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: retval
         integer , intent(out), optional :: stat
