@@ -10,6 +10,11 @@ module dist_time_calculator
 
     private 
 
+    !! Error flags
+    integer, parameter :: ERR_INVALID_VALUE_Z  = 10 !! invalid value for redshift
+    integer, parameter :: ERR_CALC_NOT_SETUP   = 21 !! calculator not setup
+    logical :: ready = .false.
+
     integer  :: nq = 0 !! number of points for integration
     real(dp), allocatable :: xq(:) !! nodes for integration
     real(dp), allocatable :: wq(:) !! weights for integration
@@ -46,7 +51,8 @@ contains
         
         !! generating integration rule...
         call generate_gaussleg(n, xq, wq, stat = stat)
-        nq = n
+        nq    = n
+        ready = .true.
         
     end subroutine setup_distance_calculator
 
@@ -56,7 +62,8 @@ contains
     subroutine reset_distance_calculator()
         deallocate( xq )
         deallocate( wq )
-        nq = 0
+        nq    = 0
+        ready = .false.
     end subroutine reset_distance_calculator
 
     !>
@@ -83,17 +90,13 @@ contains
         integer  :: i
         H0 = cm%H0
 
-        if ( nq == 0 ) then !! not properly setup
-            if ( present(stat) ) then
-                stat = 2
-            end if
+        if ( .not. ready ) then !! not properly setup
+            if ( present(stat) ) stat = ERR_CALC_NOT_SETUP
             return
         end if
 
         if ( z <= -1. ) then !! invalid value for redshift
-            if ( present(stat) ) then
-                stat = 1
-            end if
+            if ( present(stat) ) stat = ERR_INVALID_VALUE_Z
             return
         end if
 
