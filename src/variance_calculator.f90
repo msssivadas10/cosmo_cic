@@ -6,7 +6,6 @@ module variance_calculator
     use constants, only: PI
     use numerical, only: generate_gaussleg
     use objects, only: cosmology_model
-    ! use interfaces, only: ps_calculate
     implicit none
 
     private
@@ -25,9 +24,12 @@ module variance_calculator
         end subroutine ps_calculate
     end interface
 
-    !!
+    !! Error flags
+    integer, parameter :: ERR_INVALID_VALUE_Z  = 10 !! invalid value for redshift
+    integer, parameter :: ERR_INVALID_VALUE_R  = 30 !! invalid value for radius
+    integer, parameter :: ERR_CALC_NOT_SETUP   = 31 !! calculator not set up
+
     !! Window function models for varience calculations
-    !!
     integer, parameter :: WIN_TOPHAT = 4001 !! Spherical top-hat window
     integer, parameter :: WIN_GAUSS  = 4002 !! Gaussian window
     integer, parameter :: WIN_SHARPK = 4003 !! Sharp-k window
@@ -36,6 +38,7 @@ module variance_calculator
     integer  :: nq = 0             !! number of points for integration
     real(dp), allocatable :: xq(:) !! nodes for integration
     real(dp), allocatable :: wq(:) !! weights for integration
+    logical :: ready = .false.
 
     public :: set_filter, setup_variance_calculator
     public :: calculate_variance
@@ -73,8 +76,8 @@ contains
     !! Setup the variance calculator.
     !!
     !! Parameters:
-    !!  n   : integer - Size of the integration rule.
-    !!  stat: integer - Status variable. 0 for success.
+    !!  n   : integer   - Size of the integration rule.
+    !!  stat: integer   - Status variable. 0 for success.
     !!  filt: character - String id of the filter.
     !!
     subroutine setup_variance_calculator(n, stat, filt)
@@ -94,6 +97,8 @@ contains
         if ( stat .ne. 0 ) return !! failed to generate integration rule 
 
         if ( present(filt) ) call set_filter( filt ) !! setting filter 
+
+        ready = .true. !! ready for calculations
         
     end subroutine setup_variance_calculator
     
@@ -105,6 +110,7 @@ contains
         deallocate( wq )
         nq = 0
         use_filter = WIN_TOPHAT
+        ready      = .false. 
     end subroutine reset_variance_calculator
 
     !>
@@ -132,6 +138,13 @@ contains
         real(dp) :: k_shift, k_scale, lnka, lnkb
         real(dp) :: k, kr, f2, f3, res1, res2, res3, const, ns, wk, pk
         integer  :: i, max_deriv, stat2
+        stat2 = 0
+
+        if ( z <= -1. ) stat2 = ERR_INVALID_VALUE_Z
+        if ( r <=  0. ) stat2 = ERR_INVALID_VALUE_R
+        if ( .not. ready ) stat2 = ERR_CALC_NOT_SETUP
+        if ( present(stat) ) stat = stat2
+        if ( stat2 .ne. 0 ) return
         
         !! calculating integration nodes transformation
         lnka    = log(1.0e-04_dp)     !! lower limit is fixed at k = 1e-4

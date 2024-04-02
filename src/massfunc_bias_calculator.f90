@@ -40,6 +40,13 @@ module massfunc_bias_calculator
         end subroutine fs_calculate
     end interface
 
+    !! Error flags
+    integer, parameter :: ERR_INVALID_VALUE_Z  = 10 !! invalid value for redshift
+    integer, parameter :: ERR_INVALID_VALUE_M  = 11 !! invalid value for mass
+    integer, parameter :: ERR_CALC_NOT_SETUP   = 20 !! calculator not set up
+    integer, parameter :: ERR_MODEL_NOT_SET_MF = 21 !! mass function model not set
+    integer, parameter :: ERR_MODEL_NOT_SET_BF = 22 !! bias function model not set
+
     procedure(var_calculate), pointer :: vc => null() !! variance calculation
     procedure(fs_calculate) , pointer :: mf => null() !! halo mass-function model
     procedure(fs_calculate) , pointer :: bf => null() !! halo bias function model
@@ -66,11 +73,9 @@ contains
     subroutine setup_massfunc_bias_calculator(vc1, stat)
         procedure(var_calculate) :: vc1 !! variance calculation
         integer , intent(out):: stat
-
         vc => vc1
         has_setup = .true.
-
-        stat = 0
+        stat      = 0
     end subroutine setup_massfunc_bias_calculator
 
     !>
@@ -129,15 +134,15 @@ contains
         real(dp) :: r_lag, rho_m, sigma, dlnsdlnm, fsigma
         integer  :: stat2 = 0
 
-        if ( m < 0. ) stat2 = 1
-        if ( z <= -1. ) stat2 = 1
+        if ( m < 0. )   stat2 = ERR_INVALID_VALUE_M
+        if ( z <= -1. ) stat2 = ERR_INVALID_VALUE_Z
         if ( stat2 .ne. 0 ) then
             if ( present(stat) ) stat = stat2
             return
         end if
 
         if ( .not. has_setup ) then
-            if ( present(stat) ) stat = 1
+            if ( present(stat) ) stat = ERR_CALC_NOT_SETUP 
             return
         end if
 
@@ -193,8 +198,8 @@ contains
         real(dp) :: r_lag, rho_m, sigma, nu
         integer  :: stat2 = 0
 
-        if ( m < 0. ) stat2 = 1
-        if ( z <= -1. ) stat2 = 1
+        if ( m < 0. )   stat2 = ERR_INVALID_VALUE_M
+        if ( z <= -1. ) stat2 = ERR_INVALID_VALUE_Z
         if ( stat2 .ne. 0 ) then
             if ( present(stat) ) stat = stat2
             return
@@ -251,13 +256,6 @@ contains
 
         real(dp) :: sigma, nu
         integer  :: stat2 = 0
-
-        if ( m < 0. ) stat2 = 1   
-        if ( z <= -1. ) stat2 = 1
-        if ( stat2 .ne. 0 ) then
-            if ( present(stat) ) stat = stat2
-            return
-        end if
 
         !! calculating mass function
         call calculate_massfunc(m, z, Delta, cm, dndlnm, fs = fs, s = sigma, dlns = dlns, stat = stat2)
