@@ -78,32 +78,33 @@ contains
     end subroutine setup_massfunc_bias_calculator
 
     !>
-    !! Set mass-function and bias models to use.
+    !! Set mass-function model to use.
     !!
     !! Parameters:
     !!  mf1 : procedure - Mass function model
+    !!  stat: integer   - Status flag
+    !!
+    subroutine set_massfunc_model(mf1, stat)
+        procedure(fs_calculate) :: mf1 !! halo mass-function model
+        integer , intent(out)   :: stat
+        mf => mf1
+        has_mf = .true.
+        stat   = 0
+    end subroutine set_massfunc_model
+
+    !>
+    !! Set bias model to use.
+    !!
+    !! Parameters:
     !!  bf1 : procedure - Halo bias model
     !!  stat: integer   - Status flag
     !!
-    subroutine set_models(stat, mf1, bf1)
-        procedure(fs_calculate), optional :: mf1 !! halo mass-function model
-        procedure(fs_calculate), optional :: bf1 !! halo bias function model
-        integer , intent(out) :: stat
-
-        stat = 1
-
-        if ( present(mf1) ) then !! set mass function model
-            mf => mf1
-            has_mf = .true.
-            stat   = 0
-        end if 
-
-        if ( present(bf1) ) then !! set bias model
-            bf => bf1
-            has_bf = .true.
-            stat   = 0
-        end if 
-        
+    subroutine set_models(bf1, stat)
+        procedure(fs_calculate) :: bf1 !! halo bias function model
+        integer , intent(out)   :: stat
+        bf => bf1
+        has_bf = .true.
+        stat   = 0
     end subroutine set_models
 
     !>
