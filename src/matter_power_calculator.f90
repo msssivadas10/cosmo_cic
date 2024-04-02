@@ -22,17 +22,7 @@ module matter_power_calculator
             integer , intent(out), optional :: stat
         end subroutine tf_calculate
     end interface
-
-    interface
-        !! Interface to transfer function model
-        subroutine tf_calculate_params(cm, stat) 
-            use iso_fortran_env, only: dp => real64
-            use objects, only: cosmology_model
-            type(cosmology_model), intent(in) :: cm !! cosmology parameters
-            integer , intent(out), optional :: stat
-        end subroutine tf_calculate_params
-    end interface
-
+        
     !! Error flags
     integer, parameter :: ERR_INVALID_VALUE_Z  = 10 !! invalid value for redshift
     integer, parameter :: ERR_INVALID_VALUE_K  = 40 !! invalid value for wavenumber
@@ -55,10 +45,8 @@ contains
     !!  mf1 : procedure - Mass function model
     !!  stat: integer   - Status flag
     !!
-    subroutine set_power_model(tf1, tf_setup, cm, stat)
+    subroutine set_power_model(tf1, stat)
         procedure(tf_calculate) :: tf1  !! linear transfer function model
-        procedure(tf_calculate_params) :: tf_setup !! transfer function setup
-        type(cosmology_model), intent(in) :: cm !! cosmology parameters
         integer , intent(out)   :: stat
 
         !! set transfer function model
@@ -66,9 +54,6 @@ contains
         has_tf = .true.
         stat   = 0
 
-        !! calculate parameters
-        call tf_setup(cm, stat = stat)
-        
     end subroutine set_power_model
 
     !>
