@@ -31,7 +31,7 @@ contains
     !!  stat    : integer         - Status flag. Non-zero for failure.
     !! 
     subroutine tf_sugiyama95_calculate_params(cm, use_bbks, stat) 
-        type(cosmology_model), intent(inout) :: cm !! cosmology parameters
+        type(cosmology_model), intent(in) :: cm !! cosmology parameters
         logical, intent(in) , optional :: use_bbks 
         integer, intent(out), optional :: stat
         

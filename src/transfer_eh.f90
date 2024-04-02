@@ -51,7 +51,7 @@ contains
     !!  stat   : integer         - Status flag. Non-zero for failure.
     !! 
     subroutine tf_eisenstein98_calculate_params(cm, version, stat) 
-        type(cosmology_model), intent(inout) :: cm !! cosmology parameters
+        type(cosmology_model), intent(in) :: cm !! cosmology parameters
         integer, intent(in), optional :: version
         integer, intent(out), optional :: stat
 
