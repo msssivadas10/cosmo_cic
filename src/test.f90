@@ -3,15 +3,17 @@ program main
     use objects, only: cosmology_model
     use dist_time_calculator, only: setup_distance_calculator, calculate_comoving_distance
     use growth_calculator, only: setup_growth_calculator, calculate_linear_growth
-    use variance_calculator, only: setup_variance_calculator
-    use power_eh, only: tf_eisenstein98_calculate_params,   &
-                    &   set_normalization,                  &
-                    &   get_power_spectrum,                 &
-                    &   get_variance
+    use transfer_eh, only: tf_eisenstein98_calculate_params, tf_eisenstein98
     use massfunc_models, only: mf_tinker08
     use linbias_models , only: bf_tinker10
-    use massfunc_bias_calculator, only: setup_massfunc_bias_calculator, &
-                                    &   set_models,                     &
+    use matter_power_calculator, only: get_power_spectrum,                  &
+                                    &  get_variance,                        &
+                                    &  set_power_model,                     &
+                                    &  set_normalization
+    use variance_calculator, only: setup_variance_calculator 
+    use massfunc_bias_calculator, only: setup_massfunc_bias_calculator,     &
+                                    &   set_bias_model,                     &
+                                    &   set_massfunc_model,                 &
                                     &   calculate_massfunc_bias
 
     implicit none
@@ -49,17 +51,18 @@ program main
                 return
             end if
 
+            !! set-up power
+            call tf_eisenstein98_calculate_params(cm, stat = stat)
+            call set_power_model(tf_eisenstein98, stat = stat)
+            if ( stat .ne. 0 ) then
+                write (*,*) 'error: setup power spectrum'
+                return
+            end if
+
             !! initialize variance calculator
             call setup_variance_calculator(128, stat, filt = 'tophat')
             if ( stat .ne. 0 ) then
                 write (*,*) 'error: setup variance'
-                return
-            end if
-
-            !! set-up power
-            call tf_eisenstein98_calculate_params(cm, stat = stat)
-            if ( stat .ne. 0 ) then
-                write (*,*) 'error: setup power spectrum'
                 return
             end if
 
@@ -71,7 +74,8 @@ program main
             end if
 
             !! setup mass function calculator
-            call set_models(stat, mf1 = mf_tinker08, bf1 = bf_tinker10)
+            call set_massfunc_model(mf_tinker08, stat = stat)
+            call set_bias_model(bf_tinker10, stat = stat)
             call setup_massfunc_bias_calculator(get_variance, stat = stat)
             if ( stat .ne. 0 ) then
                 write (*,*) 'error: setup mass function'
