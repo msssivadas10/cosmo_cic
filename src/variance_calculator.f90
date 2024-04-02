@@ -119,16 +119,14 @@ contains
     !! Parameters:
     !!  tf     : procedure - Transfer function
     !!  r      : real      - Smoothing scale in Mpc
-    !!  z      : real      - Redshift
     !!  cm     : cosmo_t   - Cosmology prameters
     !!  sigma  : real      - Calculated variance
     !!  dlns   : real      - Calculatetd 1-st log-derivative (optional)
     !!  d2lns  : real      - Calculatetd 2-nd log-derivative (optional)
     !!
-    subroutine calculate_variance(ps, r, z, cm, sigma, dlns, d2lns, args, stat)
+    subroutine calculate_variance(ps, r, cm, sigma, dlns, d2lns, args, stat)
         procedure(ps_calculate) :: ps !! power spectrum
         real(dp), intent(in) :: r !! scale in Mpc
-        real(dp), intent(in) :: z !! redshift
         type(cosmo_t), intent(in) :: cm !! cosmology parameters
 
         real(dp), intent(out) :: sigma !! variance 
@@ -141,7 +139,6 @@ contains
         integer  :: i, max_deriv, stat2
         stat2 = 0
 
-        if ( z <= -1. ) stat2 = ERR_INVALID_VALUE_Z
         if ( r <=  0. ) stat2 = ERR_INVALID_VALUE_R
         if ( .not. ready ) stat2 = ERR_CALC_NOT_SETUP
         if ( present(stat) ) stat = stat2

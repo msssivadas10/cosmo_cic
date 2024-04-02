@@ -167,7 +167,7 @@ contains
         args(1) = z !! 1-st argument is the redshift
 
         !! calculate variance
-        call vc(ps_calculate, r, z, cm, sigma, dlns = dlns, d2lns = d2lns, args = args, stat = stat2)
+        call vc(ps_calculate, r, cm, sigma, dlns = dlns, d2lns = d2lns, args = args, stat = stat2)
         if ( present(stat) ) stat = stat2
         if ( stat2 .ne. 0 ) return
 
@@ -187,13 +187,14 @@ contains
         type(cosmo_t), intent(inout) :: cm !! cosmology parameters
         integer , intent(out), optional :: stat 
 
-        real(dp) :: calculated, r, z
+        real(dp) :: calculated, r
+        real(dp), dimension(1) :: args
         integer  :: stat2 = 0
         r = 8.0 / (0.01 * cm%H0) !! = 8 Mpc/h
-        z = 0._dp
+        args(1) = 0.0_dp !! 1-st argument is the redshift
 
         !! calculating variance at 8 Mpc/h
-        call vc(ps_calculate, r, z, cm, calculated, stat = stat2)
+        call vc(ps_calculate, r, cm, calculated, stat = stat2)
         if ( present(stat) ) stat = stat2
         if ( stat2 .ne. 0 ) return
 
