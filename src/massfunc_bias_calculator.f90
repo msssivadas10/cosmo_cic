@@ -58,7 +58,7 @@ module massfunc_bias_calculator
     public :: calculate_bias
     public :: calculate_massfunc_bias
     public :: setup_massfunc_bias_calculator
-    public :: set_models
+    public :: set_massfunc_model, set_bias_model
     
 contains
 
@@ -99,13 +99,13 @@ contains
     !!  bf1 : procedure - Halo bias model
     !!  stat: integer   - Status flag
     !!
-    subroutine set_models(bf1, stat)
+    subroutine set_bias_model(bf1, stat)
         procedure(fs_calculate) :: bf1 !! halo bias function model
         integer , intent(out)   :: stat
         bf => bf1
         has_bf = .true.
         stat   = 0
-    end subroutine set_models
+    end subroutine set_bias_model
 
     !>
     !! Calculate the halo mass-function for a given mass and redshift.
