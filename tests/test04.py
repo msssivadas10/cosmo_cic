@@ -16,11 +16,11 @@ plt.figure()
 
 # z, y1, y2, y3, y4 = np.loadtxt('tests/z_out.csv', skiprows = 1, delimiter = ',', unpack = 1)
 
-# x1 = cm.comovingDistance(z) / cm.h
+# x1 = cm.comovingDistance(z) / cm.h * 1e-3
 # plt.plot(z, x1, '-o', ms = 10)
 # plt.plot(z, y1, 'o')
 
-# x2 = cm.comovingVolumeElement(z) / cm.h**3
+# x2 = cm.comovingVolumeElement(z) / cm.h**3 * 1e-9
 # plt.plot(z, x2, '-o', ms = 10)
 # plt.plot(z, y2, 'o')
 
@@ -32,15 +32,15 @@ plt.figure()
 # plt.plot(z, x4, '-o', ms = 10)
 # plt.plot(z, y4, 'o')
 
-# k, y1, y2, y3 = np.loadtxt('tests/power.csv', skiprows = 1, delimiter = ',', unpack = 1)
+k, y1, y2, y3 = np.loadtxt('tests/power.csv', skiprows = 1, delimiter = ',', unpack = 1)
 
 # x1 = cm.matterTransferFunction(k/cm.h, 0.)
 # plt.loglog(k, x1, '-o', ms = 10)
 # plt.loglog(k, y1, 'o')
 
-# x2 = cm.matterPowerSpectrum(k/cm.h, 0., normalize=1) / cm.h**3
-# plt.loglog(k, x2, '-o', ms = 10)
-# plt.loglog(k, y2, 'o')
+x2 = cm.matterPowerSpectrum(k/cm.h, 0., normalize=1) / cm.h**3
+plt.loglog(k, x2, '-o', ms = 10)
+plt.loglog(k, y2, 'o')
 
 # x3 = cm.matterPowerSpectrum(k/cm.h, 0., 1) 
 # plt.semilogx(k, x3, '-o', ms = 10)
