@@ -1,7 +1,7 @@
-module transfer_bbks
+module mod_mtf_bbks
     use iso_fortran_env, only: dp => real64, stderr => error_unit
     use calculate_growth, only: GC_get_growth
-    use cosmology, only: cosmo_t
+    use cosmology, only: cosmo_t, get_cosmology
     implicit none
 
     private
@@ -23,20 +23,22 @@ contains
     !! Calculate the quantities related to BBKS linear transfer function.
     !!
     !! Parameters:
-    !!  cm      : cosmo_t - Cosmology parameters.
     !!  version : integer - Tells if to use original BBKS (1) or corrected version (0).
     !!  stat    : integer - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_sugiyama95_init(cm, version, stat) 
-        class(cosmo_t), intent(in) :: cm !! cosmology parameters
+    subroutine tf_sugiyama95_init(version, stat) 
         integer, intent(in) , optional :: version
         integer, intent(out), optional :: stat
         
+        type(cosmo_t) :: cm !! cosmology parameters
         real(dp) :: Om0, Ob0, h      
         integer  :: stat2 = 0
+
+        !! get the global cosmology model
+        cm = get_cosmology()
         
         !! growth factor at z=0
-        call GC_get_growth(cm, 0.0_dp, dplus0, stat = stat2)
+        call GC_get_growth(0.0_dp, dplus0, stat = stat2)
         if ( stat2 .ne. 0 ) then
             if ( present(stat) ) stat = stat2
             write (stderr, '(a)') 'error: tf_sugiyama95_init - failed to calculate growth.'
@@ -63,22 +65,24 @@ contains
     !! Parameters:
     !!  k    : real    - Wavenumebr in 1/Mpc.
     !!  z    : real    - Redshift.
-    !!  cm   : cosmo_t - Cosmology model parameters.
     !!  tk   : real    - Transfer function.
     !!  dlntk: real    - 1-st log derivative of transfer function (optional).
     !!  stat : integer - Status flag. Non-zero for failure.
     !!
-    subroutine tf_sugiyama95(k, z, cm, tk, dlntk, stat)
+    subroutine tf_sugiyama95(k, z, tk, dlntk, stat)
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
-        class(cosmo_t), intent(in) :: cm !! cosmology parameters
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
         integer , intent(out), optional :: stat
-
+        
+        type(cosmo_t) :: cm !! cosmology parameters
         real(dp) :: dplus, q, t0, t1, t2, t3, t4
         integer  :: stat2 = 0
+
+        !! get the global cosmology model
+        cm = get_cosmology()
 
         !! check if cosmology model is ready
         if ( .not. cm%is_ready() ) then
@@ -94,7 +98,7 @@ contains
         end if
 
         !! linear growth
-        call GC_get_growth(cm, z, dplus, stat = stat2)
+        call GC_get_growth(z, dplus, stat = stat2)
         if ( stat2 .ne. 0 ) then
             if ( present(stat) ) stat = stat2
             write (stderr, '(a)') 'error: tf_sugiyama95 - failed to calculate growth.'
@@ -121,4 +125,4 @@ contains
         
     end subroutine tf_sugiyama95
 
-end module transfer_bbks
+end module mod_mtf_bbks

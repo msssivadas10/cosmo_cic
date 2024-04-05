@@ -4,20 +4,14 @@
 
 .PHONY = all clean
 
-# compiler to use
 CC = gfortran		
 
-# files to exclude while compiling
-EXCL = ztest_001.f90 ztest_002.f90 main.f90
+SRCS1  = load_options.f90 main.f90
+SRCS  := $(filter-out ${SRCS1},$(wildcard *.f90)) 
+OBJS  := $(SRCS:%.f90=%.o)
+LIB   := libcosmo.a 
 
-# selecting all source files in src, except main files
-SRCS := $(filter-out ${EXCL},$(wildcard *.f90))
-OBJS := $(SRCS:%.f90=%.o)
-
-# library
-LIB := libcosmo.a
-
-all: ${OBJS} makelib cleanobjs
+all: ${OBJS} makelib 
 
 # compiling each source file in src 
 %.o: %.f90
@@ -28,12 +22,13 @@ all: ${OBJS} makelib cleanobjs
 makelib:  
 	@echo "Creating libary..."
 	ar rcs ${LIB} ${OBJS}
-
-
-# clean all .o files
-cleanobjs:
 	@echo "Cleaning up ..."
 	rm -rvf *.o ${OBJS}
+
+# building the main app
+build:
+	@echo "Building app..."
+	${CC} ${SRCS1} ${LIB} -o cosmocalc
 
 # clean all
 clean:

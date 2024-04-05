@@ -1,7 +1,7 @@
 module calculate_dist
     use iso_fortran_env, only: dp => real64, stderr => error_unit
     use utils, only: generate_gaussleg, EPS, C_KMPS, PI
-    use cosmology, only: cosmo_t
+    use cosmology, only: cosmo_t, get_cosmology
     implicit none
 
     private
@@ -57,8 +57,7 @@ contains
     !!  dvdz : real    - Comoving volume element in Mpc^3.
     !!  stat : integer - Status. 
     !!
-    subroutine DC_get_distance(cm, z, r, dvdz, stat) 
-        class(cosmo_t), intent(in) :: cm
+    subroutine DC_get_distance(z, r, dvdz, stat) 
         real(dp), intent(in)  :: z !! redshift 
         
         real(dp), intent(out) :: r              !! distance in Mpc
@@ -69,6 +68,10 @@ contains
         real(dp) :: ut_dist
         real(dp) :: a, fa, scale, shift, wa
         integer  :: i, nq
+        type(cosmo_t) :: cm
+
+        !! get the global cosmology model
+        cm = get_cosmology()
 
         !! check if the calculator is setup properly
         if ( .not. ready ) then

@@ -1,7 +1,7 @@
 module calculate_growth
     use iso_fortran_env, only: dp => real64, stderr => error_unit
     use utils, only: generate_gaussleg
-    use cosmology, only: cosmo_t
+    use cosmology, only: cosmo_t, get_cosmology
     implicit none
 
     private
@@ -57,16 +57,19 @@ contains
     !!  fplus : real    - Calculated value of growth rate (optional).
     !!  stat  : integer - Status. 
     !!
-    subroutine GC_get_growth(cm, z, dplus, fplus, stat)
-        class(cosmo_t), intent(in) :: cm
+    subroutine GC_get_growth(z, dplus, fplus, stat)
         real(dp), intent(in)  :: z !! redshift 
         
         real(dp), intent(out) :: dplus           !! growth factor
         real(dp), intent(out), optional :: fplus !! growth rate
-        integer , intent(out), optional :: stat  !! integration rule
+        integer , intent(out), optional :: stat  
         
         real(dp) :: res, a, fa, wa, dlnfa, scale
         integer  :: i, nq
+        type(cosmo_t) :: cm
+        
+        !! get the global cosmology model
+        cm = get_cosmology()
 
         !! check if the calculator is setup properly
         if ( .not. ready ) then

@@ -31,6 +31,11 @@ module cosmology
             procedure :: get_E2
             procedure :: is_ready
     end type cosmo_t
+
+    type(cosmo_t) :: glob_cm = cosmo_t(H0 = 0._dp, Om0 = 0._dp, Ob0 = 0._dp) !! Global cosmology model
+
+    public :: get_cosmology
+    public :: set_cosmology
     
 contains
 
@@ -146,11 +151,53 @@ contains
 
     end subroutine get_E2
 
+    !>
+    !! Tell if the cosmology model is ready or not.
+    !!
     function is_ready(self) result(retval)
         class(cosmo_t), intent(in) :: self
         logical :: retval
 
         retval = self%ready
     end function is_ready
+
+    !>
+    !! Get the current global cosmology model.
+    !!
+    function get_cosmology() result(cm)
+        type(cosmo_t) :: cm 
+        cm = glob_cm
+    end function get_cosmology
+    
+    !>
+    !! Set the current cosmology model parameters.  
+    !!
+    subroutine set_cosmology(cm,  stat)
+        class(cosmo_t), intent(in) :: cm
+        integer, intent(out), optional :: stat
+        integer  :: init_stat
+        
+        !! copy parameters:
+        glob_cm%H0         = cm%H0
+        glob_cm%Om0        = cm%Om0
+        glob_cm%Ob0        = cm%Ob0
+        glob_cm%Onu0       = cm%Onu0
+        glob_cm%Ode0       = cm%Ode0
+        glob_cm%Ok0        = cm%Ok0
+        glob_cm%Nnu        = cm%Nnu
+        glob_cm%ns         = cm%ns
+        glob_cm%sigma8     = cm%sigma8
+        glob_cm%Tcmb0      = cm%Tcmb0
+        glob_cm%w0         = cm%w0
+        glob_cm%wa         = cm%wa
+        glob_cm%flat       = cm%flat
+        glob_cm%ps_norm    = cm%ps_norm
+        glob_cm%include_nu = cm%include_nu
+
+        !! initialise model
+        init_stat = glob_cm%init()
+        if ( present(stat) ) stat = init_stat
+
+    end subroutine set_cosmology
     
 end module cosmology

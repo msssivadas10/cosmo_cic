@@ -1,7 +1,7 @@
-module transfer_eh
+module mod_mtf_eh
     use iso_fortran_env, only: dp => real64, stderr => error_unit
     use calculate_growth, only: GC_get_growth
-    use cosmology, only: cosmo_t
+    use cosmology, only: cosmo_t, get_cosmology
     implicit none
 
     private
@@ -45,20 +45,22 @@ contains
     !! Calculate the quantities related linear transfer functions by Eisenstein & Hu (1998).
     !!
     !! Parameters:
-    !!  cm      : cosmo_t - Cosmology parameters.
     !!  version : integer - Which version to use: BAO (1), neutrino (2) or zero baryon.  
     !!  stat    : integer - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_eisenstein98_init(cm, version, stat) 
-        class(cosmo_t), intent(in) :: cm !! cosmology parameters
+    subroutine tf_eisenstein98_init(version, stat) 
         integer, intent(in), optional :: version
         integer, intent(out), optional :: stat
-
+        
+        type(cosmo_t) :: cm !! cosmology parameters
         real(dp) :: c1, c2, yd, k_eq, R_eq, R_d, y, Gy
         integer  :: stat2 = 0
 
+        !! get the global cosmology model
+        cm = get_cosmology()
+
         !! growth factor at z=0
-        call GC_get_growth(cm, 0.0_dp, dplus0, stat = stat2)
+        call GC_get_growth(0.0_dp, dplus0, stat = stat2)
         if ( stat2 .ne. 0 ) then
             if ( present(stat) ) stat = stat2
             write (stderr, '(a)') 'error: tf_eisenstein98_init - failed to calculate growth.'
@@ -168,24 +170,26 @@ contains
     !! Calculate the linear transfer function by Eisenstein & Hu (1998), not including BAO.
     !!
     !! Parameters:
-    !!  cm    : cosmo_t - Cosmology parameters.
     !!  k     : real    - Wavenumber in 1/Mpc.
     !!  z     : real    - Redshift
     !!  tk    : real    - Value of calculated transfer function.
     !!  dlntk : real    - Value of calculated log-derivative
     !!  stat  : integer - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_eisenstein98_zb(cm, k, z, tk, dlntk, stat)
-        class(cosmo_t), intent(in) :: cm !! cosmology parameters
+    subroutine tf_eisenstein98_zb(k, z, tk, dlntk, stat)
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
         integer , intent(out), optional :: stat
-
+        
+        type(cosmo_t) :: cm !! cosmology parameters
         real(dp) :: gamma_eff, dplus, q, t1, t2, t3, dt2, dt3
         integer  :: stat2 = 0
+
+        !! get the global cosmology model
+        cm = get_cosmology()
 
         !! check if cosmology model is ready
         if ( .not. cm%is_ready() ) then
@@ -201,7 +205,7 @@ contains
         end if
 
         !! linear growth
-        call GC_get_growth(cm, z, dplus, stat = stat2)
+        call GC_get_growth(z, dplus, stat = stat2)
         if ( stat2 .ne. 0 ) then
             if ( present(stat) ) stat = stat2
             write (stderr, '(a)') 'error: tf_eisenstein98_zb - failed to calculate growth.'
@@ -235,25 +239,27 @@ contains
     !! neutrinos.
     !!
     !! Parameters:
-    !!  cm    : cosmo_t - Cosmology parameters.
     !!  k     : real    - Wavenumber in 1/Mpc.
     !!  z     : real    - Redshift
     !!  tk    : real    - Value of calculated transfer function.
     !!  dlntk : real    - Value of calculated log-derivative
     !!  stat  : integer - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_eisenstein98_nu(cm, k, z, tk, dlntk, stat) 
-        class(cosmo_t), intent(in) :: cm !! cosmology parameters
+    subroutine tf_eisenstein98_nu(k, z, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
         integer , intent(out), optional :: stat
-
+        
+        type(cosmo_t) :: cm !! cosmology parameters
         real(dp) :: gamma_eff, sqrt_alpha, yfs, dnorm
         real(dp) :: dplus, bk, B, q, q_eff, q_nu, t1, t2, t3, dt2, dt3, dbk, dzk, dlndzk
         integer  :: stat2 = 0
+
+        !! get the global cosmology model
+        cm = get_cosmology()
 
         !! check if cosmology model is ready
         if ( .not. cm%is_ready() ) then
@@ -269,7 +275,7 @@ contains
         end if
 
         !! linear growth
-        call GC_get_growth(cm, z, dplus, stat = stat2)
+        call GC_get_growth(z, dplus, stat = stat2)
         if ( stat2 .ne. 0 ) then
             if ( present(stat) ) stat = stat2
             write (stderr, '(a)') 'error: tf_eisenstein_nu - failed to calculate growth.'
@@ -334,25 +340,27 @@ contains
     !! NOTE: Derivative calculations and equations not verified.
     !!
     !! Parameters:
-    !!  cm   : cosmo_t - Cosmology parameters.
-    !!  k    : real    - Wavenumber in 1/Mpc.
-    !!  z    : real    - Redshift
-    !!  tk   : real    - Value of calculated transfer function.
-    !!  dlntk: real    - Value of calculated log-derivative
-    !!  stat : integer - Status flag. Non-zero for failure.
+    !!  k     : real    - Wavenumber in 1/Mpc.
+    !!  z     : real    - Redshift
+    !!  tk    : real    - Value of calculated transfer function.
+    !!  dlntk : real    - Value of calculated log-derivative
+    !!  stat  : integer - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_eisenstein98_bao(cm, k, z, tk, dlntk, stat) 
-        class(cosmo_t), intent(in) :: cm !! cosmology parameters
+    subroutine tf_eisenstein98_bao(k, z, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         
         real(dp), intent(out) :: tk
         real(dp), intent(out), optional :: dlntk
         integer , intent(out), optional :: stat
-
+        
+        type(cosmo_t) :: cm !! cosmology parameters
         real(dp) :: dplus
         real(dp) :: q, t0b, t0ab, dt0b, dt0ab, t1, t2, t3, t4, dt2, dt3, dt4, f, df, st
         integer  :: stat2 = 0
+
+        !! get the global cosmology model
+        cm = get_cosmology()
 
         !! check if cosmology model is ready
         if ( .not. cm%is_ready() ) then
@@ -368,7 +376,7 @@ contains
         end if
 
         !! linear growth
-        call GC_get_growth(cm, z, dplus, stat = stat2)
+        call GC_get_growth(z, dplus, stat = stat2)
         if ( stat2 .ne. 0 ) then
             if ( present(stat) ) stat = stat2
             write (stderr, '(a)') 'error: tf_eisenstein98_zb - failed to calculate growth.'
@@ -429,15 +437,13 @@ contains
     !! Calculate the linear transfer function by Eisenstein & Hu (1998).
     !!
     !! Parameters:
-    !!  cm   : cosmo_t - Cosmology parameters.
-    !!  k    : real    - Wavenumber in 1/Mpc.
-    !!  z    : real    - Redshift
-    !!  tk   : real    - Value of calculated transfer function.
-    !!  dlntk: real    - Value of calculated log-derivative
-    !!  stat : integer - Status flag. Non-zero for failure.
+    !!  k     : real    - Wavenumber in 1/Mpc.
+    !!  z     : real    - Redshift
+    !!  tk    : real    - Value of calculated transfer function.
+    !!  dlntk : real    - Value of calculated log-derivative
+    !!  stat  : integer - Status flag. Non-zero for failure.
     !! 
-    subroutine tf_eisenstein98(cm, k, z, tk, dlntk, stat) 
-        class(cosmo_t), intent(in) :: cm !! cosmology parameters
+    subroutine tf_eisenstein98(k, z, tk, dlntk, stat) 
         real(dp), intent(in) :: k !! wavenumber in 1/Mpc unit 
         real(dp), intent(in) :: z !! redshift
         
@@ -447,15 +453,15 @@ contains
 
         if ( ps_model == PS_EH98_BAO ) then  
             !! model with bao
-            call tf_eisenstein98_bao(cm, k, z, tk, dlntk = dlntk, stat = stat)
+            call tf_eisenstein98_bao(k, z, tk, dlntk = dlntk, stat = stat)
         else if ( ps_model == PS_EH98_NU  ) then  
             !! model with neutrino 
-            call tf_eisenstein98_nu(cm, k, z, tk, dlntk = dlntk, stat = stat)
+            call tf_eisenstein98_nu(k, z, tk, dlntk = dlntk, stat = stat)
         else 
             !! zero-baryon model (default)
-            call tf_eisenstein98_zb(cm, k, z, tk, dlntk = dlntk, stat = stat)
+            call tf_eisenstein98_zb(k, z, tk, dlntk = dlntk, stat = stat)
         end if
                 
     end subroutine tf_eisenstein98
     
-end module transfer_eh
+end module mod_mtf_eh

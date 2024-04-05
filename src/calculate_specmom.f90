@@ -1,22 +1,17 @@
 module calculate_specmom
     use iso_fortran_env, only: dp => real64, stderr => error_unit
     use utils, only: generate_gaussleg, PI
-    use cosmology, only: cosmo_t
     implicit none
 
     private
 
     interface
         !! Interface to power spectrum calculator
-        subroutine ps_calculate(cm, k, pk, args, stat)
+        subroutine ps_calculate(k, pk, args, stat)
             use iso_fortran_env, only: dp => real64
-            use cosmology, only: cosmo_t
-            !! inputs:
-            class(cosmo_t), intent(in) :: cm
-            real(dp), intent(in)       :: k !! wavenumber in 1/Mpc unit 
-            real(dp), intent(in), optional :: args(:) !! additional arguments
-            !! outputs:
-            real(dp), intent(out) :: pk
+            real(dp), intent(in)            :: k       !! wavenumber in 1/Mpc unit 
+            real(dp), intent(in), optional  :: args(:) !! additional arguments
+            real(dp), intent(out)           :: pk
             integer , intent(out), optional :: stat
         end subroutine ps_calculate
     end interface
@@ -98,8 +93,7 @@ contains
     !!  args : real      - Additional arguments to the power spectrum
     !!  stat : integer   - Status.
     !!
-    subroutine SMC_get_specmom(cm, ps, r, j, s, dlns, args, stat)
-        class(cosmo_t), intent(in) :: cm
+    subroutine SMC_get_specmom(ps, r, j, s, dlns, args, stat)
         procedure(ps_calculate)    :: ps 
         real(dp), intent(in)       :: r 
         integer , intent(in)       :: j
@@ -147,7 +141,7 @@ contains
             kr = k*r 
 
             !! calculating weighted power spectrum
-            call ps(cm, k, pk, args = args, stat = stat2)
+            call ps(k, pk, args = args, stat = stat2)
             if ( stat2 .ne. 0 ) then
                 if ( present(stat) ) stat = stat2
                 write(stderr,'(a)') 'error: SMC_get_specmom - failed to calculate power spectrum'
@@ -188,7 +182,7 @@ contains
         !! 1-st derivative for sharp-k filter
         if ( selected_win == WIN_SHARPK ) then
             k = 1./r
-            call ps(cm, k, pk, args = args, stat = stat2)
+            call ps(k, pk, args = args, stat = stat2)
             if ( stat2 .ne. 0 ) then
                 if ( present(stat) ) stat = stat2
                 write(stderr,'(a)') 'error: SMC_get_specmom - failed to calculate power spectrum'

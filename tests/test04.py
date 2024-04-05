@@ -32,22 +32,23 @@ plt.figure()
 # plt.plot(z, x4, '-o', ms = 10)
 # plt.plot(z, y4, 'o')
 
-k, y1, y2, y3 = np.loadtxt('tests/power.csv', skiprows = 1, delimiter = ',', unpack = 1)
+# z = 2
+# k, y1, y2, y3 = np.loadtxt('tests/power_z%.3f.csv' % z, skiprows = 1, delimiter = ',', unpack = 1)
 
-# x1 = cm.matterTransferFunction(k/cm.h, 0.)
+# x1 = cm.matterTransferFunction(k/cm.h, z)
 # plt.loglog(k, x1, '-o', ms = 10)
 # plt.loglog(k, y1, 'o')
 
-x2 = cm.matterPowerSpectrum(k/cm.h, 0., normalize=1) / cm.h**3
-plt.loglog(k, x2, '-o', ms = 10)
-plt.loglog(k, y2, 'o')
+# x2 = cm.matterPowerSpectrum(k/cm.h, z, normalize=1) / cm.h**3
+# plt.loglog(k, x2, '-o', ms = 10)
+# plt.loglog(k, y2, 'o')
 
-# x3 = cm.matterPowerSpectrum(k/cm.h, 0., 1) 
+# x3 = cm.matterPowerSpectrum(k/cm.h, z, 1) 
 # plt.semilogx(k, x3, '-o', ms = 10)
 # plt.semilogx(k, y3, 'o')
 
-# z = 2
-# m, y1, y2, y3, y4, y5 = np.loadtxt('tests/mfbf_z%.1f.csv' % z, skiprows = 1, delimiter = ',', unpack = 1)
+z = 0
+m, y0, y1, y2, y4, y3, y5 = np.loadtxt('tests/massfunc_z%.3f.csv' % z, skiprows = 1, delimiter = ',', unpack = 1)
 
 # x1 = cm.matterVariance(cm.lagrangianR(m*cm.h), z, normalize=1)**0.5
 # plt.loglog(m, x1, '-o', ms = 10)
@@ -65,9 +66,9 @@ plt.loglog(k, y2, 'o')
 # plt.loglog(m, x4, '-o', ms=10)
 # plt.loglog(m, y4, 'o')
 
-# x5 = cm.haloBias(m*cm.h, z, 200.) 
-# plt.loglog(m, x5, '-o', ms=10)
-# plt.loglog(m, y5, 'o')
+x5 = cm.haloBias(m*cm.h, z, 200.) 
+plt.loglog(m, x5, '-o', ms=10)
+plt.loglog(m, y5, 'o')
 
 plt.show()
 
