@@ -7,3 +7,4 @@ test_*.json
 *.out
 *.o
 *.a
+*.csv
